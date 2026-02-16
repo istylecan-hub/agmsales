@@ -502,6 +502,54 @@ export default function SalaryConfiguration() {
             </div>
           </CardContent>
         </Card>
+
+        {/* 3L. Short Hours Deduction */}
+        <Card data-testid="config-short-hours">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Clock className="w-5 h-5 text-red-500" />
+              3L. Short Hours Deduction
+            </CardTitle>
+            <CardDescription>Deduct for working less than standard hours</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="enableShortHours">
+                Enable Short Hours Deduction
+                <span className="block text-xs text-muted-foreground">Track hours worked below standard</span>
+              </Label>
+              <Switch
+                id="enableShortHours"
+                checked={config.enableShortHoursDeduction}
+                onCheckedChange={(v) => updateConfig('enableShortHoursDeduction', v)}
+                data-testid="enable-short-hours-switch"
+              />
+            </div>
+            {config.enableShortHoursDeduction && (
+              <>
+                <Separator />
+                <div>
+                  <Label htmlFor="shortConversion">Short Hours to Days Conversion Base</Label>
+                  <Input
+                    id="shortConversion"
+                    type="number"
+                    value={config.shortHoursConversionBase}
+                    onChange={(e) => updateConfig('shortHoursConversionBase', parseFloat(e.target.value) || 9)}
+                    min="1"
+                    max="24"
+                    data-testid="short-hours-conversion-input"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Short hours ÷ {config.shortHoursConversionBase} = Deduction days
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground bg-red-500/10 p-2 rounded">
+                  Example: If someone works 7 hours instead of 9 hours on 5 days = 10 short hours = {(10 / config.shortHoursConversionBase).toFixed(2)} day deduction
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Calculate Button (Bottom) */}
