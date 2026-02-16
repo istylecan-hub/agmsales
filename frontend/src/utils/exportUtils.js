@@ -112,9 +112,10 @@ export const exportSalaryToPDF = (results, summary) => {
   doc.setFontSize(10);
   doc.setTextColor(0, 0, 0);
   doc.text(`Total Employees: ${summary.totalEmployees}`, 14, 25);
-  doc.text(`Total Salary: ₹${summary.totalSalary.toLocaleString('en-IN')}`, 80, 25);
-  doc.text(`Total OT: ₹${summary.totalOT.toLocaleString('en-IN')}`, 150, 25);
-  doc.text(`Zero Salary: ${summary.zeroSalaryCount}`, 220, 25);
+  doc.text(`Total Salary: ₹${summary.totalSalary.toLocaleString('en-IN')}`, 70, 25);
+  doc.text(`Total OT: ₹${summary.totalOT.toLocaleString('en-IN')}`, 130, 25);
+  doc.text(`Short Ded: -₹${(summary.totalShortDeduction || 0).toLocaleString('en-IN')}`, 190, 25);
+  doc.text(`Zero Salary: ${summary.zeroSalaryCount}`, 250, 25);
   
   // Table
   const tableData = results.map((r, index) => [
@@ -126,13 +127,12 @@ export const exportSalaryToPDF = (results, summary) => {
     r.presentDays,
     r.sundayWorked,
     r.effectiveWO,
-    r.effectiveHL,
-    r.sandwichDays,
     r.paidDays,
     r.otHours,
-    r.otDays,
+    r.shortHours || 0,
     `₹${r.grossSalary.toLocaleString('en-IN')}`,
     `₹${r.otAmount.toLocaleString('en-IN')}`,
+    `-₹${(r.shortDeduction || 0).toLocaleString('en-IN')}`,
     `₹${r.totalSalary.toLocaleString('en-IN')}`,
   ]);
   
@@ -146,13 +146,12 @@ export const exportSalaryToPDF = (results, summary) => {
     results.reduce((s, r) => s + r.presentDays, 0).toFixed(1),
     results.reduce((s, r) => s + r.sundayWorked, 0).toFixed(1),
     results.reduce((s, r) => s + r.effectiveWO, 0),
-    results.reduce((s, r) => s + r.effectiveHL, 0),
-    results.reduce((s, r) => s + r.sandwichDays, 0),
     results.reduce((s, r) => s + r.paidDays, 0).toFixed(1),
     results.reduce((s, r) => s + r.otHours, 0).toFixed(1),
-    results.reduce((s, r) => s + r.otDays, 0).toFixed(2),
-    `₹${(summary.totalSalary - summary.totalOT).toLocaleString('en-IN')}`,
+    results.reduce((s, r) => s + (r.shortHours || 0), 0).toFixed(1),
+    `₹${(summary.totalSalary - summary.totalOT + (summary.totalShortDeduction || 0)).toLocaleString('en-IN')}`,
     `₹${summary.totalOT.toLocaleString('en-IN')}`,
+    `-₹${(summary.totalShortDeduction || 0).toLocaleString('en-IN')}`,
     `₹${summary.totalSalary.toLocaleString('en-IN')}`,
   ]);
   
@@ -160,8 +159,8 @@ export const exportSalaryToPDF = (results, summary) => {
     startY: 32,
     head: [[
       'S.No', 'Code', 'Name', 'Dept', 'Salary',
-      'Present', 'Sun', 'WO', 'HL', 'Sand.',
-      'Paid', 'OT Hrs', 'OT Days', 'Gross', 'OT Amt', 'Total'
+      'Present', 'Sun', 'WO', 'Paid', 'OT Hrs', 'Short Hrs',
+      'Gross', 'OT Amt', 'Short Ded', 'Total'
     ]],
     body: tableData,
     theme: 'grid',
