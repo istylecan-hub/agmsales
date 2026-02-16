@@ -39,6 +39,10 @@ export const DEFAULT_CONFIG = {
   
   // 3K. Missing Punch Handling
   weekdayMissingOutPunch: 'full', // 'full', 'half', 'absent'
+  
+  // 3L. Short Hours Deduction
+  enableShortHoursDeduction: true,
+  shortHoursConversionBase: 9, // short hours divided by this gives deduction days
 };
 
 export const STORAGE_KEYS = {
