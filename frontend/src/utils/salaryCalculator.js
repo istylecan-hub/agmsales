@@ -56,6 +56,12 @@ export const calculateSalaries = (attendanceData, employees, config, daysInMonth
 
 /**
  * Calculate salary for a single employee
+ * 
+ * Formula:
+ * - Weekday OT: (OUT - IN) - 9 hours (when positive)
+ * - Sunday: 7.5+ hours = 1 full day, >8 hours = extra goes to OT
+ * - Total Payable Days = Present Days + Sunday Worked + OT Days
+ * - Salary = Per Day × Total Payable Days
  */
 const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
   const dailyBreakdown = [];
@@ -68,9 +74,15 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
   let totalOTMinutes = 0;
   let totalCameDays = 0;
   let halfDayCount = 0;
-  let totalShortMinutes = 0; // Track short hours (when worked less than standard)
+  let totalShortMinutes = 0;
   
   const classifications = [];
+  
+  // Config values
+  const weekdayStandardMins = (config.weekdayStandardHours || 9) * 60; // 9 hours = 540 mins
+  const sundayStandardMins = (config.sundayStandardHours || 8) * 60; // 8 hours = 480 mins
+  const sundayMinThreshold = 7.5 * 60; // 7.5 hours = 450 mins for full day
+  const weekdayHalfDayMins = (config.weekdayHalfDayThreshold || 4.5) * 60;
   
   // Process each day
   attEmp.dailyData.forEach((day) => {
@@ -92,90 +104,79 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
     let dayValue = 0;
     let otMinutes = 0;
     let isHalfDay = false;
-    let shortMinutes = 0; // Track short hours for this day
+    let shortMinutes = 0;
+    
+    // Calculate actual work minutes from IN-OUT
+    const actualWorkMins = (hasIn && hasOut) ? calculateWorkMinutes(inTime, outTime) : 0;
+    // Also get work hours from sheet (Row 6)
+    const sheetWorkMins = parseTimeToMinutes(workHours);
+    // Use actual work minutes, fallback to sheet
+    const workMins = actualWorkMins > 0 ? actualWorkMins : sheetWorkMins;
     
     if (hasIn) {
       totalCameDays++;
       
-      // Get OT minutes directly from attendance sheet's OT row
-      const sheetOTMinutes = parseTimeToMinutes(otTime);
-      
       if (isSunday) {
-        // Sunday Worked
+        // SUNDAY WORKING
         classification = DAY_CLASSIFICATIONS.SUNDAY_WORKED;
         
-        // For Sunday, work hours in sheet is often "00:00" and actual hours are in OT row
-        // So we use OT time as the work time for Sunday
-        const sundayWorkMins = sheetOTMinutes > 0 ? sheetOTMinutes : calculateWorkMinutes(inTime, outTime);
-        const sundayThresholdMins = config.sundayHalfDayThreshold * 60;
+        // For Sunday, use OT row time or calculate from IN-OUT
+        const sundayWorkMins = workMins > 0 ? workMins : parseTimeToMinutes(otTime);
         
-        if (sundayWorkMins > 0) {
-          if (config.enableHalfDay && sundayWorkMins < sundayThresholdMins) {
-            dayValue = 0.5;
-            isHalfDay = true;
-            halfDayCount++;
-          } else {
-            dayValue = 1;
-          }
+        if (sundayWorkMins >= sundayMinThreshold) {
+          // 7.5+ hours = 1 full day
+          dayValue = 1;
           
-          // Use OT from sheet directly for Sunday (Sunday work = OT)
-          if (config.enableOvertime && sundayWorkMins > 0) {
-            otMinutes = sundayWorkMins; // All Sunday work hours are OT
+          // Extra hours beyond 8 hours = OT
+          if (config.enableOvertime && sundayWorkMins > sundayStandardMins) {
+            otMinutes = sundayWorkMins - sundayStandardMins;
           }
+        } else if (sundayWorkMins > 0) {
+          // Less than 7.5 hours but came
+          dayValue = 0.5;
+          isHalfDay = true;
+          halfDayCount++;
         } else if (!hasOut) {
-          // Sunday with IN but no OUT and no OT recorded
+          // IN but no OUT
           if (config.sundayMissingOutPunch === 'full') {
             dayValue = 1;
           } else if (config.sundayMissingOutPunch === 'half') {
             dayValue = 0.5;
             isHalfDay = true;
             halfDayCount++;
-          } else {
-            dayValue = 0;
           }
         }
         
         sundayWorkedDays += dayValue;
         
       } else if (isHoliday) {
-        // Holiday Worked
+        // HOLIDAY WORKING (treat like Sunday)
         classification = DAY_CLASSIFICATIONS.HOLIDAY_WORKED;
         
-        // Holiday work hours from OT row or IN/OUT
-        const holidayWorkMins = sheetOTMinutes > 0 ? sheetOTMinutes : calculateWorkMinutes(inTime, outTime);
-        const holidayThresholdMins = config.sundayHalfDayThreshold * 60;
+        const holidayWorkMins = workMins > 0 ? workMins : parseTimeToMinutes(otTime);
         
-        if (holidayWorkMins > 0) {
-          if (config.enableHalfDay && holidayWorkMins < holidayThresholdMins) {
-            dayValue = 0.5;
-            isHalfDay = true;
-            halfDayCount++;
-          } else {
-            dayValue = 1;
+        if (holidayWorkMins >= sundayMinThreshold) {
+          dayValue = 1;
+          if (config.enableOvertime && holidayWorkMins > sundayStandardMins) {
+            otMinutes = holidayWorkMins - sundayStandardMins;
           }
-          
-          // Holiday work = OT
-          if (config.enableOvertime && holidayWorkMins > 0) {
-            otMinutes = holidayWorkMins;
-          }
+        } else if (holidayWorkMins > 0) {
+          dayValue = 0.5;
+          isHalfDay = true;
+          halfDayCount++;
         } else if (!hasOut) {
-          dayValue = 1; // HL worked but no out punch - count as full
+          dayValue = 1;
         }
         
         holidayWorkedDays += dayValue;
         
       } else {
-        // Regular weekday - PRESENT
+        // REGULAR WEEKDAY
         classification = DAY_CLASSIFICATIONS.PRESENT;
         
-        // Parse work hours from the workHours column
-        let workMins = parseTimeToMinutes(workHours);
-        
         if (workMins > 0) {
-          const weekdayThresholdMins = config.weekdayHalfDayThreshold * 60;
-          const weekdayStandardMins = config.weekdayStandardHours * 60;
-          
-          if (config.enableHalfDay && workMins < weekdayThresholdMins) {
+          // Half day check
+          if (config.enableHalfDay && workMins < weekdayHalfDayMins) {
             dayValue = 0.5;
             isHalfDay = true;
             halfDayCount++;
@@ -183,17 +184,21 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
             dayValue = 1;
           }
           
-          // Track short hours (when worked less than standard)
-          if (config.enableShortHoursDeduction && workMins < weekdayStandardMins && workMins >= weekdayThresholdMins) {
+          // Short hours deduction (worked but less than 9 hours)
+          if (config.enableShortHoursDeduction && workMins < weekdayStandardMins && workMins >= weekdayHalfDayMins) {
             shortMinutes = weekdayStandardMins - workMins;
           }
           
-          // Use OT from attendance sheet directly (Row 8)
-          if (config.enableOvertime && sheetOTMinutes > 0) {
-            otMinutes = sheetOTMinutes;
+          // WEEKDAY OT: (OUT - IN) - 9 hours (when positive)
+          if (config.enableOvertime && workMins > weekdayStandardMins) {
+            const graceMins = config.otGraceMinutes || 0;
+            const overtimeMins = workMins - weekdayStandardMins;
+            if (overtimeMins > graceMins) {
+              otMinutes = overtimeMins;
+            }
           }
         } else {
-          // IN exists but no work hours (missing OUT punch)
+          // IN exists but no work hours (missing OUT)
           if (config.weekdayMissingOutPunch === 'full') {
             dayValue = 1;
           } else if (config.weekdayMissingOutPunch === 'half') {
@@ -216,7 +221,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
       totalShortMinutes += shortMinutes;
       
     } else {
-      // No IN time
+      // No IN time - absent or week off
       if (isSunday) {
         classification = DAY_CLASSIFICATIONS.WEEK_OFF;
         rawWODays++;
@@ -241,6 +246,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
       inTime: inTime || '--:--',
       outTime: outTime || '--:--',
       workHours: workHours || '00:00',
+      workMins: workMins,
       classification,
       dayValue,
       isHalfDay,
@@ -275,6 +281,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
       shortHours: 0,
       shortDays: 0,
       shortDeduction: 0,
+      totalPayableDays: 0,
       grossSalary: 0,
       otAmount: 0,
       totalSalary: 0,
@@ -298,21 +305,35 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
   const effectiveHL = Math.max(0, rawHLDays - sandwichHL);
   const sandwichDays = sandwichWO + sandwichHL;
   
+  // Calculate OT
+  const otHours = totalOTMinutes / 60;
+  const otDays = otHours / (config.otConversionBase || 9);
+  
   // Calculate short hours deduction
   const shortHours = totalShortMinutes / 60;
   const shortDays = config.enableShortHoursDeduction 
-    ? shortHours / config.shortHoursConversionBase 
+    ? shortHours / (config.shortHoursConversionBase || 9) 
     : 0;
   
-  // Calculate salary
+  // SALARY CALCULATION
+  // Total Payable Days = Present Days + Sunday Worked + OT Days
   const perDaySalary = masterEmp.salary / daysInMonth;
   const paidDays = presentDays + effectiveWO + effectiveHL;
-  const otHours = totalOTMinutes / 60;
-  const otDays = otHours / config.otConversionBase;
   
+  // NEW FORMULA: Total Payable = Present + Sunday Worked + OT Days
+  const totalPayableDays = presentDays + sundayWorkedDays + holidayWorkedDays + otDays - shortDays;
+  
+  // Gross salary based on present + effective WO/HL
   const grossSalary = perDaySalary * (paidDays + sundayWorkedDays + holidayWorkedDays);
+  
+  // OT amount
   const otAmount = perDaySalary * otDays;
+  
+  // Short deduction
   const shortDeduction = perDaySalary * shortDays;
+  
+  // TOTAL SALARY = Per Day × (Present + Sunday + OT Days) - Short Deduction
+  // Or: Gross + OT - Short
   const totalSalary = grossSalary + otAmount - shortDeduction;
   
   return {
@@ -339,6 +360,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
     shortHours: Math.round(shortHours * 100) / 100,
     shortDays: Math.round(shortDays * 100) / 100,
     shortDeduction: Math.round(shortDeduction),
+    totalPayableDays: Math.round(totalPayableDays * 100) / 100,
     grossSalary: Math.round(grossSalary),
     otAmount: Math.round(otAmount),
     totalSalary: Math.round(totalSalary),
@@ -350,7 +372,6 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
 
 /**
  * Apply extended sandwich rule
- * A WO or HL day is NOT paid if BOTH nearest working days on either side are Absent
  */
 const applySandwichRule = (classifications, config) => {
   let sandwichWO = 0;
@@ -372,11 +393,9 @@ const applySandwichRule = (classifications, config) => {
     
     if (!isWOorHL(current)) continue;
     
-    // Check if we should apply sandwich to this type
     if (current.classification === DAY_CLASSIFICATIONS.WEEK_OFF && !config.applySandwichToWO) continue;
     if (current.classification === DAY_CLASSIFICATIONS.HOLIDAY_OFF && !config.applySandwichToHL) continue;
     
-    // Look LEFT - skip consecutive WO/HL, find first P/S/H or A
     let leftFound = null;
     for (let j = i - 1; j >= 0; j--) {
       if (isWOorHL(classifications[j])) continue;
@@ -390,7 +409,6 @@ const applySandwichRule = (classifications, config) => {
       }
     }
     
-    // Look RIGHT - skip consecutive WO/HL, find first P/S/H or A
     let rightFound = null;
     for (let j = i + 1; j < classifications.length; j++) {
       if (isWOorHL(classifications[j])) continue;
@@ -404,7 +422,6 @@ const applySandwichRule = (classifications, config) => {
       }
     }
     
-    // Sandwich: both sides are absent
     if (leftFound === 'absent' && rightFound === 'absent') {
       if (current.classification === DAY_CLASSIFICATIONS.WEEK_OFF) {
         sandwichWO++;
@@ -413,7 +430,6 @@ const applySandwichRule = (classifications, config) => {
       }
     }
     
-    // Edge case: beginning of month (no left), check only right
     if (leftFound === null && rightFound === 'absent') {
       if (current.classification === DAY_CLASSIFICATIONS.WEEK_OFF) {
         sandwichWO++;
@@ -422,7 +438,6 @@ const applySandwichRule = (classifications, config) => {
       }
     }
     
-    // Edge case: end of month (no right), check only left
     if (rightFound === null && leftFound === 'absent') {
       if (current.classification === DAY_CLASSIFICATIONS.WEEK_OFF) {
         sandwichWO++;
