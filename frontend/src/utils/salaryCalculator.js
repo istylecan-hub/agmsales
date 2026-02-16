@@ -241,6 +241,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
       dayValue,
       isHalfDay,
       otMinutes,
+      shortMinutes,
     });
   });
   
