@@ -97,32 +97,33 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
     if (hasIn) {
       totalCameDays++;
       
+      // Get OT minutes directly from attendance sheet's OT row
+      const sheetOTMinutes = parseTimeToMinutes(otTime);
+      
       if (isSunday) {
         // Sunday Worked
         classification = DAY_CLASSIFICATIONS.SUNDAY_WORKED;
         
-        if (hasOut) {
-          const workMins = calculateWorkMinutes(inTime, outTime);
-          const sundayThresholdMins = config.sundayHalfDayThreshold * 60;
-          
-          if (config.enableHalfDay && workMins < sundayThresholdMins && workMins > 0) {
+        // For Sunday, work hours in sheet is often "00:00" and actual hours are in OT row
+        // So we use OT time as the work time for Sunday
+        const sundayWorkMins = sheetOTMinutes > 0 ? sheetOTMinutes : calculateWorkMinutes(inTime, outTime);
+        const sundayThresholdMins = config.sundayHalfDayThreshold * 60;
+        
+        if (sundayWorkMins > 0) {
+          if (config.enableHalfDay && sundayWorkMins < sundayThresholdMins) {
             dayValue = 0.5;
             isHalfDay = true;
             halfDayCount++;
-          } else if (workMins > 0) {
+          } else {
             dayValue = 1;
           }
           
-          // Sunday OT
-          if (config.enableOvertime) {
-            const sundayStandardMins = config.sundayStandardHours * 60;
-            const overtimeMins = workMins - sundayStandardMins;
-            if (overtimeMins > config.otGraceMinutes) {
-              otMinutes = overtimeMins;
-            }
+          // Use OT from sheet directly for Sunday
+          if (config.enableOvertime && sheetOTMinutes > 0) {
+            otMinutes = sheetOTMinutes;
           }
-        } else {
-          // Sunday with IN but no OUT
+        } else if (!hasOut) {
+          // Sunday with IN but no OUT and no OT recorded
           if (config.sundayMissingOutPunch === 'full') {
             dayValue = 1;
           } else if (config.sundayMissingOutPunch === 'half') {
