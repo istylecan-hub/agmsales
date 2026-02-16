@@ -209,6 +209,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
       }
       
       totalOTMinutes += otMinutes;
+      totalShortMinutes += shortMinutes;
       
     } else {
       // No IN time
