@@ -89,6 +89,7 @@ export default function SalaryConfiguration() {
       weekdayStandardHours: 9,
       sundayStandardHours: 8,
       enableOvertime: true,
+      useSheetOT: true,
       otGraceMinutes: 15,
       otConversionBase: 9,
       enableHalfDay: true,
