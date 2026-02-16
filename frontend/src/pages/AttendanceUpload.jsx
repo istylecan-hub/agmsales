@@ -9,6 +9,7 @@ import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { Progress } from '../components/ui/progress';
 import { ScrollArea } from '../components/ui/scroll-area';
+import { Checkbox } from '../components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -40,6 +41,8 @@ import {
   Search,
   Save,
   X,
+  CalendarDays,
+  Plus,
 } from 'lucide-react';
 
 export default function AttendanceUpload() {
@@ -58,6 +61,17 @@ export default function AttendanceUpload() {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [editingAttendance, setEditingAttendance] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Holiday management states
+  const [manualHolidays, setManualHolidays] = useState([]);
+  const [isHolidayModalOpen, setIsHolidayModalOpen] = useState(false);
+
+  // Get day names for the month
+  const getDayName = (dayNum, daysInMonth) => {
+    if (!attendanceData || !attendanceData.employees[0]) return '';
+    const dayData = attendanceData.employees[0].dailyData.find(d => d.day === dayNum);
+    return dayData?.dayName || '';
+  };
 
   // Sync preview data when attendanceData changes
   useEffect(() => {
@@ -94,6 +108,11 @@ export default function AttendanceUpload() {
         inMasterNotInAttendance,
         matchedCount: attendanceData.employees.length - inAttendanceNotInMaster.length,
       });
+      
+      // Load existing manual holidays if any
+      if (attendanceData.manualHolidays) {
+        setManualHolidays(attendanceData.manualHolidays);
+      }
     }
   }, [attendanceData, employees, previewData]);
 
@@ -152,6 +171,7 @@ export default function AttendanceUpload() {
         matchedCount: parsed.employees.length - inAttendanceNotInMaster.length,
       });
       setAttendanceData(parsed);
+      setManualHolidays([]); // Reset holidays for new file
       
       toast.success(`Parsed ${parsed.totalEmployees} employees for ${parsed.daysInMonth} days`);
     } catch (error) {
@@ -189,6 +209,29 @@ export default function AttendanceUpload() {
   };
 
   const handleProceed = () => {
+    // Apply manual holidays to attendance data before proceeding
+    if (manualHolidays.length > 0 && attendanceData) {
+      const updatedEmployees = attendanceData.employees.map(emp => ({
+        ...emp,
+        dailyData: emp.dailyData.map(day => {
+          if (manualHolidays.includes(day.day)) {
+            return {
+              ...day,
+              isHoliday: true,
+              status: 'HL',
+            };
+          }
+          return day;
+        }),
+      }));
+      
+      setAttendanceData({
+        ...attendanceData,
+        employees: updatedEmployees,
+        manualHolidays: manualHolidays,
+      });
+    }
+    
     setCurrentStep(3);
     navigate('/configuration');
   };
@@ -197,6 +240,54 @@ export default function AttendanceUpload() {
     setPreviewData(null);
     setMatchStatus(null);
     setAttendanceData(null);
+    setManualHolidays([]);
+  };
+
+  // Holiday management functions
+  const toggleHoliday = (dayNum) => {
+    setManualHolidays(prev => {
+      if (prev.includes(dayNum)) {
+        return prev.filter(d => d !== dayNum);
+      } else {
+        return [...prev, dayNum].sort((a, b) => a - b);
+      }
+    });
+  };
+
+  const applyHolidays = () => {
+    if (!attendanceData) return;
+    
+    const updatedEmployees = attendanceData.employees.map(emp => ({
+      ...emp,
+      dailyData: emp.dailyData.map(day => {
+        if (manualHolidays.includes(day.day)) {
+          return {
+            ...day,
+            isHoliday: true,
+            status: 'HL',
+          };
+        } else {
+          // Remove holiday status if previously marked but now unchecked
+          if (day.status === 'HL' && attendanceData.manualHolidays?.includes(day.day)) {
+            return {
+              ...day,
+              isHoliday: false,
+              status: '',
+            };
+          }
+        }
+        return day;
+      }),
+    }));
+    
+    setAttendanceData({
+      ...attendanceData,
+      employees: updatedEmployees,
+      manualHolidays: manualHolidays,
+    });
+    
+    setIsHolidayModalOpen(false);
+    toast.success(`${manualHolidays.length} holidays marked successfully`);
   };
 
   // Edit attendance functions
@@ -266,6 +357,22 @@ export default function AttendanceUpload() {
       String(emp.code).includes(searchQuery)
     );
   }, [previewData, searchQuery]);
+
+  // Generate days array for holiday selection
+  const daysArray = useMemo(() => {
+    if (!attendanceData) return [];
+    const days = [];
+    for (let i = 1; i <= attendanceData.daysInMonth; i++) {
+      const dayData = attendanceData.employees[0]?.dailyData.find(d => d.day === i);
+      days.push({
+        day: i,
+        dayName: dayData?.dayName || '',
+        isSunday: dayData?.isSunday || false,
+        existingHoliday: dayData?.status === 'HL' && !attendanceData.manualHolidays?.includes(i),
+      });
+    }
+    return days;
+  }, [attendanceData]);
 
   return (
     <div className="space-y-6" data-testid="attendance-upload-page">
@@ -358,7 +465,7 @@ export default function AttendanceUpload() {
       ) : (
         <>
           {/* Preview Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card data-testid="employees-detected-card">
               <CardContent className="p-6 flex items-center gap-4">
                 <div className="p-3 bg-blue-500/10 rounded-xl">
@@ -392,7 +499,59 @@ export default function AttendanceUpload() {
                 </div>
               </CardContent>
             </Card>
+            <Card data-testid="holidays-card" className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsHolidayModalOpen(true)}>
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="p-3 bg-cyan-500/10 rounded-xl">
+                  <CalendarDays className="w-8 h-8 text-cyan-500" />
+                </div>
+                <div>
+                  <p className="text-3xl font-bold font-[JetBrains_Mono]">{manualHolidays.length}</p>
+                  <p className="text-sm text-muted-foreground">Holidays Marked</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
+
+          {/* Holiday Management Card */}
+          <Card className="border-cyan-500/30 bg-cyan-500/5" data-testid="holiday-management-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center justify-between text-lg">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="w-5 h-5 text-cyan-500" />
+                  Holiday Management
+                </div>
+                <Button 
+                  onClick={() => setIsHolidayModalOpen(true)} 
+                  className="gap-2"
+                  data-testid="manage-holidays-btn"
+                >
+                  <Plus className="w-4 h-4" />
+                  Mark Holidays
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {manualHolidays.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {manualHolidays.map(day => {
+                    const dayData = daysArray.find(d => d.day === day);
+                    return (
+                      <Badge 
+                        key={day} 
+                        className="bg-cyan-500/20 text-cyan-700 border-cyan-500/30 px-3 py-1"
+                      >
+                        {day} ({dayData?.dayName || ''})
+                      </Badge>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  कोई holiday mark नहीं है। अगर इस month में कोई छुट्टी है (जैसे 26 Jan), तो "Mark Holidays" button पर click करके mark करें।
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Warnings */}
           {matchStatus?.inAttendanceNotInMaster.length > 0 && (
@@ -525,6 +684,92 @@ export default function AttendanceUpload() {
         </>
       )}
 
+      {/* Holiday Selection Modal */}
+      <Dialog open={isHolidayModalOpen} onOpenChange={setIsHolidayModalOpen}>
+        <DialogContent className="max-w-2xl" data-testid="holiday-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="w-5 h-5 text-cyan-500" />
+              Mark Holidays for This Month
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              इस month में जो भी holidays हैं (जैसे 26 Jan - Republic Day), उन्हें select करें। 
+              Selected dates पर जो employees नहीं आए, उन्हें paid holiday मिलेगा।
+            </p>
+            
+            <ScrollArea className="h-[400px] pr-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {daysArray.map(({ day, dayName, isSunday, existingHoliday }) => (
+                  <div
+                    key={day}
+                    className={`
+                      flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all
+                      ${manualHolidays.includes(day) 
+                        ? 'border-cyan-500 bg-cyan-500/10' 
+                        : existingHoliday
+                          ? 'border-green-500 bg-green-500/10'
+                          : isSunday 
+                            ? 'border-blue-500/30 bg-blue-500/5' 
+                            : 'border-border hover:border-cyan-500/50'
+                      }
+                    `}
+                    onClick={() => !existingHoliday && toggleHoliday(day)}
+                    data-testid={`holiday-day-${day}`}
+                  >
+                    <Checkbox
+                      checked={manualHolidays.includes(day) || existingHoliday}
+                      disabled={existingHoliday}
+                      onCheckedChange={() => !existingHoliday && toggleHoliday(day)}
+                    />
+                    <div className="flex-1">
+                      <p className={`font-mono font-bold ${isSunday ? 'text-blue-500' : ''}`}>
+                        {day}
+                      </p>
+                      <p className={`text-xs ${isSunday ? 'text-blue-500' : 'text-muted-foreground'}`}>
+                        {dayName}
+                        {isSunday && ' (Week Off)'}
+                        {existingHoliday && ' (Sheet HL)'}
+                      </p>
+                    </div>
+                    {manualHolidays.includes(day) && (
+                      <Badge className="bg-cyan-500 text-white text-xs">HL</Badge>
+                    )}
+                    {existingHoliday && (
+                      <Badge className="bg-green-500 text-white text-xs">Sheet</Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+            
+            {manualHolidays.length > 0 && (
+              <div className="mt-4 p-3 bg-cyan-500/10 rounded-lg">
+                <p className="text-sm font-medium">
+                  Selected Holidays: {manualHolidays.map(d => {
+                    const dayData = daysArray.find(dd => dd.day === d);
+                    return `${d} (${dayData?.dayName})`;
+                  }).join(', ')}
+                </p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsHolidayModalOpen(false)} data-testid="cancel-holiday">
+              <X className="w-4 h-4 mr-2" />
+              Cancel
+            </Button>
+            <Button onClick={applyHolidays} className="bg-cyan-600 hover:bg-cyan-700" data-testid="apply-holidays">
+              <Save className="w-4 h-4 mr-2" />
+              Apply Holidays ({manualHolidays.length})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Attendance Modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh]" data-testid="edit-attendance-modal">
@@ -548,7 +793,13 @@ export default function AttendanceUpload() {
               </TableHeader>
               <TableBody>
                 {editingAttendance.map((day, index) => (
-                  <TableRow key={index} className={day.isSunday ? 'bg-blue-500/5' : ''}>
+                  <TableRow 
+                    key={index} 
+                    className={`
+                      ${day.isSunday ? 'bg-blue-500/5' : ''}
+                      ${day.isHoliday || manualHolidays.includes(day.day) ? 'bg-cyan-500/5' : ''}
+                    `}
+                  >
                     <TableCell className="font-mono font-bold">{day.day}</TableCell>
                     <TableCell className={`text-sm ${day.isSunday ? 'text-blue-500 font-medium' : 'text-muted-foreground'}`}>
                       {day.dayName}
@@ -583,10 +834,10 @@ export default function AttendanceUpload() {
                     </TableCell>
                     <TableCell>
                       <Badge 
-                        variant={day.isHoliday ? 'default' : 'secondary'}
-                        className={day.isHoliday ? 'bg-cyan-500/10 text-cyan-600' : ''}
+                        variant={day.isHoliday || manualHolidays.includes(day.day) ? 'default' : 'secondary'}
+                        className={day.isHoliday || manualHolidays.includes(day.day) ? 'bg-cyan-500/20 text-cyan-600' : ''}
                       >
-                        {day.status || (day.isSunday ? 'SUN' : '-')}
+                        {manualHolidays.includes(day.day) ? 'HL' : day.status || (day.isSunday ? 'SUN' : '-')}
                       </Badge>
                     </TableCell>
                   </TableRow>
