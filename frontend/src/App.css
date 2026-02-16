@@ -1,34 +1,158 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
-}
+/* App.css - Additional styles for AGM Sales Salary Calculator */
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
-}
-
-.App-header {
-    background-color: #0f0f10;
+/* Remove default centering */
+.App {
     min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
 }
 
-.App-link {
-    color: #61dafb;
+/* Card hover effects */
+.card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
+.card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Upload zone styles */
+.upload-zone {
+    border: 2px dashed hsl(var(--border));
+    border-radius: 12px;
+    padding: 3rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.upload-zone:hover {
+    border-color: hsl(var(--primary));
+    background-color: hsl(var(--secondary) / 0.5);
+}
+
+.upload-zone.dragging {
+    border-color: hsl(var(--primary));
+    background-color: hsl(var(--primary) / 0.05);
+    transform: scale(1.02);
+}
+
+/* Table row alternating colors */
+tbody tr:nth-child(even) {
+    background-color: hsl(var(--muted) / 0.3);
+}
+
+/* Sticky table header */
+.sticky-header thead {
+    position: sticky;
+    top: 0;
+    background-color: hsl(var(--card));
+    z-index: 10;
+}
+
+/* Badge variants for status */
+.badge-present {
+    background-color: hsl(142 76% 36% / 0.1);
+    color: hsl(142 76% 36%);
+    border-color: hsl(142 76% 36% / 0.2);
+}
+
+.badge-absent {
+    background-color: hsl(0 84% 60% / 0.1);
+    color: hsl(0 84% 60%);
+    border-color: hsl(0 84% 60% / 0.2);
+}
+
+.badge-holiday {
+    background-color: hsl(217 91% 60% / 0.1);
+    color: hsl(217 91% 60%);
+    border-color: hsl(217 91% 60% / 0.2);
+}
+
+.badge-overtime {
+    background-color: hsl(24 95% 53% / 0.1);
+    color: hsl(24 95% 53%);
+    border-color: hsl(24 95% 53% / 0.2);
+}
+
+.badge-weekoff {
+    background-color: hsl(var(--muted));
+    color: hsl(var(--muted-foreground));
+}
+
+/* Glass morphism effect for sidebar */
+.glass-sidebar {
+    background: hsl(var(--card) / 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+/* Number formatting */
+.currency {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Wizard step indicators */
+.wizard-step {
+    position: relative;
+}
+
+.wizard-step::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 100%;
+    width: 100%;
+    height: 2px;
+    background: hsl(var(--border));
+    transform: translateY(-50%);
+}
+
+.wizard-step:last-child::after {
+    display: none;
+}
+
+.wizard-step.completed::after {
+    background: hsl(142 76% 36%);
+}
+
+/* Focus states */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+}
+
+/* Transitions for interactive elements */
+button,
+input,
+select,
+a {
+    transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+/* Loading spinner */
+@keyframes spin {
     to {
         transform: rotate(360deg);
     }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Pulse animation for processing */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
