@@ -1,11 +1,14 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { parseAttendanceExcel, normalizeEmpCode } from '../utils/excelParser';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { Progress } from '../components/ui/progress';
+import { ScrollArea } from '../components/ui/scroll-area';
 import {
   Table,
   TableBody,
@@ -14,6 +17,13 @@ import {
   TableHeader,
   TableRow,
 } from '../components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { toast } from 'sonner';
 import {
@@ -26,6 +36,10 @@ import {
   RefreshCw,
   Calendar,
   Users,
+  Pencil,
+  Search,
+  Save,
+  X,
 } from 'lucide-react';
 
 export default function AttendanceUpload() {
@@ -38,6 +52,50 @@ export default function AttendanceUpload() {
   const [processingProgress, setProcessingProgress] = useState(0);
   const [previewData, setPreviewData] = useState(null);
   const [matchStatus, setMatchStatus] = useState(null);
+  
+  // Edit mode states
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [editingAttendance, setEditingAttendance] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Sync preview data when attendanceData changes
+  useEffect(() => {
+    if (attendanceData && !previewData) {
+      const employeeCodeSet = new Set(employees.map(e => normalizeEmpCode(e.code)));
+      const attendanceCodeSet = new Set(attendanceData.employees.map(e => normalizeEmpCode(e.code)));
+      
+      const inAttendanceNotInMaster = attendanceData.employees
+        .filter(e => !employeeCodeSet.has(normalizeEmpCode(e.code)))
+        .map(e => ({ code: e.code, name: e.name }));
+      
+      const inMasterNotInAttendance = employees
+        .filter(e => !attendanceCodeSet.has(normalizeEmpCode(e.code)))
+        .map(e => ({ code: e.code, name: e.name }));
+      
+      const preview = attendanceData.employees.map(emp => {
+        const totalInDays = emp.dailyData.filter(d => d.hasIn).length;
+        const sundaysWithIn = emp.dailyData.filter(d => d.isSunday && d.hasIn).length;
+        const matchedInMaster = employeeCodeSet.has(normalizeEmpCode(emp.code));
+        
+        return {
+          code: emp.code,
+          name: emp.name,
+          department: emp.department,
+          totalInDays,
+          sundaysWithIn,
+          matchedInMaster,
+        };
+      });
+      
+      setPreviewData(preview);
+      setMatchStatus({
+        inAttendanceNotInMaster,
+        inMasterNotInAttendance,
+        matchedCount: attendanceData.employees.length - inAttendanceNotInMaster.length,
+      });
+    }
+  }, [attendanceData, employees, previewData]);
 
   const processFile = async (file) => {
     if (!file) return;
@@ -60,7 +118,6 @@ export default function AttendanceUpload() {
       const parsed = await parseAttendanceExcel(file);
       setProcessingProgress(70);
       
-      // Match with employee master
       const employeeCodeSet = new Set(employees.map(e => normalizeEmpCode(e.code)));
       const attendanceCodeSet = new Set(parsed.employees.map(e => normalizeEmpCode(e.code)));
       
@@ -72,7 +129,6 @@ export default function AttendanceUpload() {
         .filter(e => !attendanceCodeSet.has(normalizeEmpCode(e.code)))
         .map(e => ({ code: e.code, name: e.name }));
       
-      // Calculate preview data for each employee
       const preview = parsed.employees.map(emp => {
         const totalInDays = emp.dailyData.filter(d => d.hasIn).length;
         const sundaysWithIn = emp.dailyData.filter(d => d.isSunday && d.hasIn).length;
@@ -142,6 +198,74 @@ export default function AttendanceUpload() {
     setMatchStatus(null);
     setAttendanceData(null);
   };
+
+  // Edit attendance functions
+  const openEditModal = (emp) => {
+    const attendanceEmp = attendanceData.employees.find(
+      e => normalizeEmpCode(e.code) === normalizeEmpCode(emp.code)
+    );
+    if (attendanceEmp) {
+      setSelectedEmployee(attendanceEmp);
+      setEditingAttendance([...attendanceEmp.dailyData]);
+      setIsEditModalOpen(true);
+    }
+  };
+
+  const updateDayAttendance = (dayIndex, field, value) => {
+    setEditingAttendance(prev => {
+      const updated = [...prev];
+      updated[dayIndex] = {
+        ...updated[dayIndex],
+        [field]: value,
+        hasIn: field === 'inTime' ? (value && value !== '--:--' && value !== '') : updated[dayIndex].hasIn,
+        hasOut: field === 'outTime' ? (value && value !== '--:--' && value !== '') : updated[dayIndex].hasOut,
+      };
+      return updated;
+    });
+  };
+
+  const saveAttendanceEdits = () => {
+    if (!selectedEmployee || !attendanceData) return;
+    
+    const updatedEmployees = attendanceData.employees.map(emp => {
+      if (normalizeEmpCode(emp.code) === normalizeEmpCode(selectedEmployee.code)) {
+        return {
+          ...emp,
+          dailyData: editingAttendance,
+        };
+      }
+      return emp;
+    });
+    
+    setAttendanceData({
+      ...attendanceData,
+      employees: updatedEmployees,
+    });
+    
+    // Update preview
+    const updatedPreview = previewData.map(p => {
+      if (normalizeEmpCode(p.code) === normalizeEmpCode(selectedEmployee.code)) {
+        const totalInDays = editingAttendance.filter(d => d.hasIn || (d.inTime && d.inTime !== '--:--')).length;
+        const sundaysWithIn = editingAttendance.filter(d => d.isSunday && (d.hasIn || (d.inTime && d.inTime !== '--:--'))).length;
+        return { ...p, totalInDays, sundaysWithIn };
+      }
+      return p;
+    });
+    setPreviewData(updatedPreview);
+    
+    toast.success(`Attendance updated for ${selectedEmployee.name}`);
+    setIsEditModalOpen(false);
+  };
+
+  // Filter employees for search
+  const filteredPreview = useMemo(() => {
+    if (!previewData) return [];
+    if (!searchQuery) return previewData;
+    return previewData.filter(emp =>
+      emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(emp.code).includes(searchQuery)
+    );
+  }, [previewData, searchQuery]);
 
   return (
     <div className="space-y-6" data-testid="attendance-upload-page">
@@ -309,12 +433,22 @@ export default function AttendanceUpload() {
             </Alert>
           )}
 
-          {/* Preview Table */}
+          {/* Preview Table with Search and Edit */}
           <Card data-testid="attendance-preview-card">
             <CardHeader>
-              <CardTitle className="flex items-center justify-between">
+              <CardTitle className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <span>Attendance Preview</span>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search employee..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 w-48"
+                      data-testid="attendance-search-input"
+                    />
+                  </div>
                   <Button variant="outline" onClick={handleReset} className="gap-2" data-testid="upload-new-file-btn">
                     <RefreshCw className="w-4 h-4" />
                     Upload New File
@@ -342,10 +476,11 @@ export default function AttendanceUpload() {
                       <TableHead className="text-center">Days with IN</TableHead>
                       <TableHead className="text-center">Sundays with IN</TableHead>
                       <TableHead className="text-center">In Master</TableHead>
+                      <TableHead className="text-center">Edit</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {previewData.map((emp, index) => (
+                    {filteredPreview.map((emp, index) => (
                       <TableRow key={index} data-testid={`preview-row-${emp.code}`}>
                         <TableCell className="font-mono">{emp.code}</TableCell>
                         <TableCell className="font-medium">{emp.name}</TableCell>
@@ -370,6 +505,16 @@ export default function AttendanceUpload() {
                             <AlertTriangle className="w-5 h-5 text-red-500 mx-auto" />
                           )}
                         </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditModal(emp)}
+                            data-testid={`edit-attendance-${emp.code}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -379,6 +524,89 @@ export default function AttendanceUpload() {
           </Card>
         </>
       )}
+
+      {/* Edit Attendance Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh]" data-testid="edit-attendance-modal">
+          <DialogHeader>
+            <DialogTitle>
+              Edit Attendance - {selectedEmployee?.name} (Code: {selectedEmployee?.code})
+            </DialogTitle>
+          </DialogHeader>
+          
+          <ScrollArea className="h-[500px] pr-4">
+            <Table>
+              <TableHeader className="sticky top-0 bg-card">
+                <TableRow>
+                  <TableHead className="w-12">Day</TableHead>
+                  <TableHead className="w-16">Name</TableHead>
+                  <TableHead className="w-28">IN Time</TableHead>
+                  <TableHead className="w-28">OUT Time</TableHead>
+                  <TableHead className="w-28">Work Hours</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {editingAttendance.map((day, index) => (
+                  <TableRow key={index} className={day.isSunday ? 'bg-blue-500/5' : ''}>
+                    <TableCell className="font-mono font-bold">{day.day}</TableCell>
+                    <TableCell className={`text-sm ${day.isSunday ? 'text-blue-500 font-medium' : 'text-muted-foreground'}`}>
+                      {day.dayName}
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="time"
+                        value={day.inTime !== '--:--' ? day.inTime : ''}
+                        onChange={(e) => updateDayAttendance(index, 'inTime', e.target.value || '--:--')}
+                        className="h-8 text-sm"
+                        data-testid={`edit-in-time-${day.day}`}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="time"
+                        value={day.outTime !== '--:--' ? day.outTime : ''}
+                        onChange={(e) => updateDayAttendance(index, 'outTime', e.target.value || '--:--')}
+                        className="h-8 text-sm"
+                        data-testid={`edit-out-time-${day.day}`}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="text"
+                        value={day.workHours}
+                        onChange={(e) => updateDayAttendance(index, 'workHours', e.target.value)}
+                        placeholder="HH:MM"
+                        className="h-8 text-sm font-mono"
+                        data-testid={`edit-work-hours-${day.day}`}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant={day.isHoliday ? 'default' : 'secondary'}
+                        className={day.isHoliday ? 'bg-cyan-500/10 text-cyan-600' : ''}
+                      >
+                        {day.status || (day.isSunday ? 'SUN' : '-')}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)} data-testid="cancel-edit-attendance">
+              <X className="w-4 h-4 mr-2" />
+              Cancel
+            </Button>
+            <Button onClick={saveAttendanceEdits} data-testid="save-edit-attendance">
+              <Save className="w-4 h-4 mr-2" />
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
