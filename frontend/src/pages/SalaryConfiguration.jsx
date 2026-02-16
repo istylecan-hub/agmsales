@@ -104,6 +104,8 @@ export default function SalaryConfiguration() {
       applySandwichToHL: true,
       zeroAttendanceZeroSalary: true,
       weekdayMissingOutPunch: 'full',
+      enableShortHoursDeduction: true,
+      shortHoursConversionBase: 9,
     });
     toast.success('Configuration reset to defaults');
   };
