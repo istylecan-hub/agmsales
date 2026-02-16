@@ -92,6 +92,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
     let dayValue = 0;
     let otMinutes = 0;
     let isHalfDay = false;
+    let shortMinutes = 0; // Track short hours for this day
     
     if (hasIn) {
       totalCameDays++;
