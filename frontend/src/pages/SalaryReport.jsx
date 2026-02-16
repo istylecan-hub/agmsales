@@ -469,16 +469,28 @@ export default function SalaryReport() {
               <span>
                 {selectedEmployee?.name} (Code: {selectedEmployee?.code})
               </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => selectedEmployee && handleDownloadEmployeeBreakdown(selectedEmployee)}
-                className="gap-2"
-                data-testid="download-breakdown-btn"
-              >
-                <Download className="w-4 h-4" />
-                Download
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => selectedEmployee && handleDownloadSalarySlip(selectedEmployee)}
+                  className="gap-2 bg-green-600 hover:bg-green-700"
+                  data-testid="download-salary-slip-btn"
+                >
+                  <Receipt className="w-4 h-4" />
+                  Salary Slip
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => selectedEmployee && handleDownloadEmployeeBreakdown(selectedEmployee)}
+                  className="gap-2"
+                  data-testid="download-breakdown-btn"
+                >
+                  <Download className="w-4 h-4" />
+                  Breakdown
+                </Button>
+              </div>
             </DialogTitle>
           </DialogHeader>
           
