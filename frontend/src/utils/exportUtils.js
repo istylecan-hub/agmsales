@@ -228,3 +228,215 @@ export const exportEmployeeBreakdownToExcel = (employee) => {
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Daily Breakdown');
   XLSX.writeFile(workbook, `${employee.name}_Breakdown.xlsx`);
 };
+
+/**
+ * Generate Salary Slip PDF for individual employee
+ */
+export const generateSalarySlipPDF = (employee, month = '', year = '') => {
+  const doc = new jsPDF('p', 'mm', 'a4'); // Portrait A4
+  
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 15;
+  let yPos = margin;
+  
+  // Company Header
+  doc.setFillColor(47, 84, 150);
+  doc.rect(0, 0, pageWidth, 35, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  doc.text('AGM SALES', pageWidth / 2, 15, { align: 'center' });
+  
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  doc.text('SALARY SLIP', pageWidth / 2, 25, { align: 'center' });
+  
+  if (month || year) {
+    doc.setFontSize(10);
+    doc.text(`Month: ${month} ${year}`, pageWidth / 2, 32, { align: 'center' });
+  }
+  
+  yPos = 45;
+  doc.setTextColor(0, 0, 0);
+  
+  // Employee Details Box
+  doc.setDrawColor(200, 200, 200);
+  doc.setFillColor(248, 249, 250);
+  doc.roundedRect(margin, yPos, pageWidth - 2 * margin, 35, 3, 3, 'FD');
+  
+  yPos += 8;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Employee Details', margin + 5, yPos);
+  
+  yPos += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Employee Code: ${employee.code}`, margin + 5, yPos);
+  doc.text(`Department: ${employee.department || 'N/A'}`, pageWidth / 2, yPos);
+  
+  yPos += 7;
+  doc.text(`Employee Name: ${employee.name}`, margin + 5, yPos);
+  doc.text(`Monthly Salary: ₹${employee.monthlySalary.toLocaleString('en-IN')}`, pageWidth / 2, yPos);
+  
+  yPos += 7;
+  doc.text(`Days in Month: ${employee.daysInMonth}`, margin + 5, yPos);
+  doc.text(`Per Day: ₹${employee.perDaySalary.toFixed(2)}`, pageWidth / 2, yPos);
+  
+  yPos += 15;
+  
+  // Attendance Summary
+  doc.setFillColor(248, 249, 250);
+  doc.roundedRect(margin, yPos, pageWidth - 2 * margin, 45, 3, 3, 'FD');
+  
+  yPos += 8;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Attendance Summary', margin + 5, yPos);
+  
+  yPos += 10;
+  doc.setFont('helvetica', 'normal');
+  
+  // Row 1
+  doc.text(`Present Days: ${employee.presentDays}`, margin + 5, yPos);
+  doc.text(`Sunday Worked: ${employee.sundayWorked}`, margin + 60, yPos);
+  doc.text(`Holiday Worked: ${employee.holidayWorked}`, margin + 115, yPos);
+  
+  yPos += 7;
+  // Row 2
+  doc.text(`Week Off (WO): ${employee.effectiveWO}`, margin + 5, yPos);
+  doc.text(`Holidays (HL): ${employee.effectiveHL}`, margin + 60, yPos);
+  doc.text(`Absent Days: ${employee.absentDays}`, margin + 115, yPos);
+  
+  yPos += 7;
+  // Row 3
+  doc.text(`OT Hours: ${employee.otHours}`, margin + 5, yPos);
+  doc.text(`OT Days: ${employee.otDays}`, margin + 60, yPos);
+  doc.text(`Sandwich Deducted: ${employee.sandwichDays}`, margin + 115, yPos);
+  
+  yPos += 7;
+  // Row 4 - Short hours
+  doc.text(`Short Hours: ${employee.shortHours || 0}`, margin + 5, yPos);
+  doc.text(`Short Days: ${(employee.shortDays || 0).toFixed(2)}`, margin + 60, yPos);
+  
+  yPos += 15;
+  
+  // Earnings Table
+  doc.setFillColor(34, 139, 34); // Green
+  doc.rect(margin, yPos, (pageWidth - 2 * margin) / 2 - 5, 8, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.text('EARNINGS', margin + 25, yPos + 6);
+  
+  // Deductions Header
+  doc.setFillColor(220, 53, 69); // Red
+  doc.rect(pageWidth / 2 + 2.5, yPos, (pageWidth - 2 * margin) / 2 - 5, 8, 'F');
+  doc.text('DEDUCTIONS', pageWidth / 2 + 27, yPos + 6);
+  
+  yPos += 10;
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
+  
+  // Earnings
+  const earningsX = margin + 5;
+  const earningsValX = margin + 70;
+  
+  doc.text('Basic (Present + WO + HL):', earningsX, yPos);
+  const basicAmount = employee.perDaySalary * (employee.presentDays + employee.effectiveWO + employee.effectiveHL);
+  doc.text(`₹${Math.round(basicAmount).toLocaleString('en-IN')}`, earningsValX, yPos);
+  
+  yPos += 7;
+  doc.text('Sunday Working:', earningsX, yPos);
+  const sundayAmount = employee.perDaySalary * employee.sundayWorked;
+  doc.text(`₹${Math.round(sundayAmount).toLocaleString('en-IN')}`, earningsValX, yPos);
+  
+  yPos += 7;
+  doc.text('Holiday Working:', earningsX, yPos);
+  const holidayAmount = employee.perDaySalary * employee.holidayWorked;
+  doc.text(`₹${Math.round(holidayAmount).toLocaleString('en-IN')}`, earningsValX, yPos);
+  
+  yPos += 7;
+  doc.text('Overtime Amount:', earningsX, yPos);
+  doc.text(`₹${employee.otAmount.toLocaleString('en-IN')}`, earningsValX, yPos);
+  
+  // Deductions
+  const deductX = pageWidth / 2 + 7;
+  const deductValX = pageWidth / 2 + 65;
+  
+  yPos -= 21; // Go back up
+  
+  doc.text('Short Hours Deduction:', deductX, yPos);
+  doc.text(`₹${(employee.shortDeduction || 0).toLocaleString('en-IN')}`, deductValX, yPos);
+  
+  yPos += 7;
+  doc.text('Sandwich Deduction:', deductX, yPos);
+  const sandwichDeduct = employee.perDaySalary * employee.sandwichDays;
+  doc.text(`₹${Math.round(sandwichDeduct).toLocaleString('en-IN')}`, deductValX, yPos);
+  
+  yPos += 7;
+  doc.text('Absent Deduction:', deductX, yPos);
+  const absentDeduct = employee.perDaySalary * employee.absentDays;
+  doc.text(`₹${Math.round(absentDeduct).toLocaleString('en-IN')}`, deductValX, yPos);
+  
+  yPos += 25;
+  
+  // Gross and Net Salary
+  doc.setDrawColor(47, 84, 150);
+  doc.setLineWidth(0.5);
+  doc.line(margin, yPos, pageWidth - margin, yPos);
+  
+  yPos += 8;
+  doc.setFontSize(11);
+  
+  // Gross
+  doc.setFont('helvetica', 'bold');
+  doc.text('Gross Salary:', margin + 5, yPos);
+  doc.text(`₹${employee.grossSalary.toLocaleString('en-IN')}`, margin + 70, yPos);
+  
+  // OT
+  doc.text('(+) OT Amount:', pageWidth / 2 + 7, yPos);
+  doc.text(`₹${employee.otAmount.toLocaleString('en-IN')}`, pageWidth / 2 + 60, yPos);
+  
+  yPos += 8;
+  // Short Deduction
+  doc.text('(-) Short Deduction:', pageWidth / 2 + 7, yPos);
+  doc.setTextColor(220, 53, 69);
+  doc.text(`₹${(employee.shortDeduction || 0).toLocaleString('en-IN')}`, pageWidth / 2 + 60, yPos);
+  doc.setTextColor(0, 0, 0);
+  
+  yPos += 12;
+  
+  // NET PAYABLE - Big box
+  doc.setFillColor(47, 84, 150);
+  doc.roundedRect(margin, yPos, pageWidth - 2 * margin, 20, 3, 3, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14);
+  doc.text('NET PAYABLE:', margin + 10, yPos + 13);
+  doc.setFontSize(16);
+  doc.text(`₹${employee.totalSalary.toLocaleString('en-IN')}`, pageWidth - margin - 50, yPos + 13);
+  
+  yPos += 30;
+  doc.setTextColor(0, 0, 0);
+  
+  // Total Payable Days
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Total Payable Days: Present (${employee.presentDays}) + Sunday (${employee.sundayWorked}) + OT Days (${employee.otDays}) = ${employee.totalPayableDays || (employee.presentDays + employee.sundayWorked + employee.otDays).toFixed(2)}`, margin, yPos);
+  
+  yPos += 15;
+  
+  // Footer
+  doc.setDrawColor(200, 200, 200);
+  doc.line(margin, yPos, pageWidth - margin, yPos);
+  
+  yPos += 10;
+  doc.setFontSize(8);
+  doc.setTextColor(128, 128, 128);
+  doc.text('This is a computer generated salary slip.', pageWidth / 2, yPos, { align: 'center' });
+  doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, pageWidth / 2, yPos + 5, { align: 'center' });
+  
+  // Save
+  const date = new Date().toISOString().split('T')[0];
+  doc.save(`Salary_Slip_${employee.name}_${date}.pdf`);
+};
+
