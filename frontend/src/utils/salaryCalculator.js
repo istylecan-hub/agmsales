@@ -294,6 +294,12 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
   const effectiveHL = Math.max(0, rawHLDays - sandwichHL);
   const sandwichDays = sandwichWO + sandwichHL;
   
+  // Calculate short hours deduction
+  const shortHours = totalShortMinutes / 60;
+  const shortDays = config.enableShortHoursDeduction 
+    ? shortHours / config.shortHoursConversionBase 
+    : 0;
+  
   // Calculate salary
   const perDaySalary = masterEmp.salary / daysInMonth;
   const paidDays = presentDays + effectiveWO + effectiveHL;
@@ -302,7 +308,8 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
   
   const grossSalary = perDaySalary * (paidDays + sundayWorkedDays + holidayWorkedDays);
   const otAmount = perDaySalary * otDays;
-  const totalSalary = grossSalary + otAmount;
+  const shortDeduction = perDaySalary * shortDays;
+  const totalSalary = grossSalary + otAmount - shortDeduction;
   
   return {
     code: masterEmp.code,
@@ -324,6 +331,10 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
     otMinutes: totalOTMinutes,
     otHours: Math.round(otHours * 100) / 100,
     otDays: Math.round(otDays * 100) / 100,
+    shortMinutes: totalShortMinutes,
+    shortHours: Math.round(shortHours * 100) / 100,
+    shortDays: Math.round(shortDays * 100) / 100,
+    shortDeduction: Math.round(shortDeduction),
     grossSalary: Math.round(grossSalary),
     otAmount: Math.round(otAmount),
     totalSalary: Math.round(totalSalary),
