@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { exportSalaryToExcel, exportSalaryToPDF, exportEmployeeBreakdownToExcel } from '../utils/exportUtils';
+import { exportSalaryToExcel, exportSalaryToPDF, exportEmployeeBreakdownToExcel, generateSalarySlipPDF } from '../utils/exportUtils';
 import { DAY_CLASSIFICATIONS } from '../utils/constants';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -28,6 +28,7 @@ import {
   FileSpreadsheet,
   FileText,
   Download,
+  Receipt,
   Search,
   Users,
   IndianRupee,
