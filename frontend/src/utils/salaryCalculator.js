@@ -166,6 +166,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
         
         if (workMins > 0) {
           const weekdayThresholdMins = config.weekdayHalfDayThreshold * 60;
+          const weekdayStandardMins = config.weekdayStandardHours * 60;
           
           if (config.enableHalfDay && workMins < weekdayThresholdMins) {
             dayValue = 0.5;
@@ -175,9 +176,13 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
             dayValue = 1;
           }
           
+          // Track short hours (when worked less than standard)
+          if (config.enableShortHoursDeduction && workMins < weekdayStandardMins && workMins >= weekdayThresholdMins) {
+            shortMinutes = weekdayStandardMins - workMins;
+          }
+          
           // Weekday OT
           if (config.enableOvertime) {
-            const weekdayStandardMins = config.weekdayStandardHours * 60;
             const overtimeMins = workMins - weekdayStandardMins;
             if (overtimeMins > config.otGraceMinutes) {
               otMinutes = overtimeMins;
