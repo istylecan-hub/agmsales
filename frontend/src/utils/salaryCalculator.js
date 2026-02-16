@@ -182,12 +182,9 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
             shortMinutes = weekdayStandardMins - workMins;
           }
           
-          // Weekday OT
-          if (config.enableOvertime) {
-            const overtimeMins = workMins - weekdayStandardMins;
-            if (overtimeMins > config.otGraceMinutes) {
-              otMinutes = overtimeMins;
-            }
+          // Use OT from attendance sheet directly (Row 8)
+          if (config.enableOvertime && sheetOTMinutes > 0) {
+            otMinutes = sheetOTMinutes;
           }
         } else {
           // IN exists but no work hours (missing OUT punch)
