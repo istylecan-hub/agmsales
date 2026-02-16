@@ -372,9 +372,19 @@ export default function SalaryReport() {
                         <span className="font-mono text-sm">0</span>
                       )}
                     </TableCell>
+                    <TableCell className="text-center">
+                      {result.shortHours > 0 ? (
+                        <Badge className="bg-red-500/10 text-red-500 font-mono">{result.shortHours}</Badge>
+                      ) : (
+                        <span className="font-mono text-sm">0</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right font-mono">₹{result.grossSalary.toLocaleString('en-IN')}</TableCell>
                     <TableCell className="text-right font-mono text-orange-500">
                       {result.otAmount > 0 ? `₹${result.otAmount.toLocaleString('en-IN')}` : '-'}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-red-500">
+                      {result.shortDeduction > 0 ? `-₹${result.shortDeduction.toLocaleString('en-IN')}` : '-'}
                     </TableCell>
                     <TableCell className="text-right font-mono font-bold">
                       ₹{result.totalSalary.toLocaleString('en-IN')}
