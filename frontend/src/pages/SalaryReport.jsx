@@ -182,7 +182,7 @@ export default function SalaryReport() {
       </div>
 
       {/* Summary Dashboard */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4" data-testid="summary-dashboard">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4" data-testid="summary-dashboard">
         <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -224,6 +224,22 @@ export default function SalaryReport() {
               </div>
               <div className="p-3 bg-orange-500/10 rounded-xl">
                 <Clock className="w-6 h-6 text-orange-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Short Ded.</p>
+                <p className="text-2xl font-bold font-[JetBrains_Mono] mt-1 text-red-500">
+                  -₹{(summary.totalShortDeduction || 0).toLocaleString('en-IN')}
+                </p>
+              </div>
+              <div className="p-3 bg-red-500/10 rounded-xl">
+                <Clock className="w-6 h-6 text-red-500" />
               </div>
             </div>
           </CardContent>
