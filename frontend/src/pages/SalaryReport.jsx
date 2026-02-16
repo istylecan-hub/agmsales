@@ -515,6 +515,7 @@ export default function SalaryReport() {
                       <TableHead>Status</TableHead>
                       <TableHead className="text-center">Value</TableHead>
                       <TableHead className="text-center">OT (min)</TableHead>
+                      <TableHead className="text-center">Short (min)</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -548,6 +549,13 @@ export default function SalaryReport() {
                         <TableCell className="text-center">
                           {day.otMinutes > 0 ? (
                             <Badge className="bg-orange-500/10 text-orange-500 font-mono">{day.otMinutes}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {day.shortMinutes > 0 ? (
+                            <Badge className="bg-red-500/10 text-red-500 font-mono">{day.shortMinutes}</Badge>
                           ) : (
                             <span className="text-muted-foreground">-</span>
                           )}
