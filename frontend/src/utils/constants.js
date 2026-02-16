@@ -10,6 +10,7 @@ export const DEFAULT_CONFIG = {
   
   // 3C. Overtime Rules
   enableOvertime: true,
+  useSheetOT: true, // Use OT from attendance sheet directly (recommended)
   otGraceMinutes: 15,
   otConversionBase: 9, // OT hours divided by this gives OT days
   
