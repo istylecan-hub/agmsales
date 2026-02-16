@@ -438,6 +438,7 @@ const calculateSummary = (results) => {
   const totalEmployees = results.length;
   const totalSalary = results.reduce((sum, r) => sum + r.totalSalary, 0);
   const totalOT = results.reduce((sum, r) => sum + r.otAmount, 0);
+  const totalShortDeduction = results.reduce((sum, r) => sum + (r.shortDeduction || 0), 0);
   const zeroSalaryCount = results.filter(r => r.totalSalary === 0).length;
   const halfDayCount = results.reduce((sum, r) => sum + r.halfDayCount, 0);
   
@@ -445,6 +446,7 @@ const calculateSummary = (results) => {
     totalEmployees,
     totalSalary,
     totalOT,
+    totalShortDeduction,
     zeroSalaryCount,
     halfDayCount,
   };
