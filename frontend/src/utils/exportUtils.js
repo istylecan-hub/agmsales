@@ -222,7 +222,7 @@ export const exportEmployeeBreakdownToExcel = (employee) => {
   
   worksheet['!cols'] = [
     { wch: 6 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
-    { wch: 12 }, { wch: 18 }, { wch: 10 }, { wch: 10 }, { wch: 12 }
+    { wch: 12 }, { wch: 18 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }
   ];
   
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Daily Breakdown');
