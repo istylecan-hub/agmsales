@@ -68,6 +68,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
   let totalOTMinutes = 0;
   let totalCameDays = 0;
   let halfDayCount = 0;
+  let totalShortMinutes = 0; // Track short hours (when worked less than standard)
   
   const classifications = [];
   
