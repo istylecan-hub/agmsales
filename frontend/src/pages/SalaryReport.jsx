@@ -115,6 +115,11 @@ export default function SalaryReport() {
     toast.success(`Breakdown for ${employee.name} downloaded`);
   };
 
+  const handleDownloadSalarySlip = (employee) => {
+    generateSalarySlipPDF(employee);
+    toast.success(`Salary slip for ${employee.name} downloaded`);
+  };
+
   const getClassificationBadge = (classification) => {
     switch (classification) {
       case DAY_CLASSIFICATIONS.PRESENT:
