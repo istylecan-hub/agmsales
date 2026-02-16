@@ -412,14 +412,27 @@ export default function SalaryReport() {
                       ₹{result.totalSalary.toLocaleString('en-IN')}
                     </TableCell>
                     <TableCell className="text-center">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleViewDetails(result)}
-                        data-testid={`view-details-${result.code}`}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
+                      <div className="flex justify-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleViewDetails(result)}
+                          title="View Details"
+                          data-testid={`view-details-${result.code}`}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDownloadSalarySlip(result)}
+                          title="Download Salary Slip"
+                          className="text-green-600 hover:text-green-700"
+                          data-testid={`salary-slip-${result.code}`}
+                        >
+                          <Receipt className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
