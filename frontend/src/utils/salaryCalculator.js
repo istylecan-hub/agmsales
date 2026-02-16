@@ -118,9 +118,9 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
             dayValue = 1;
           }
           
-          // Use OT from sheet directly for Sunday
-          if (config.enableOvertime && sheetOTMinutes > 0) {
-            otMinutes = sheetOTMinutes;
+          // Use OT from sheet directly for Sunday (Sunday work = OT)
+          if (config.enableOvertime && sundayWorkMins > 0) {
+            otMinutes = sundayWorkMins; // All Sunday work hours are OT
           }
         } else if (!hasOut) {
           // Sunday with IN but no OUT and no OT recorded
@@ -141,18 +141,24 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
         // Holiday Worked
         classification = DAY_CLASSIFICATIONS.HOLIDAY_WORKED;
         
-        if (hasOut) {
-          const workMins = calculateWorkMinutes(inTime, outTime);
-          const sundayThresholdMins = config.sundayHalfDayThreshold * 60;
-          
-          if (config.enableHalfDay && workMins < sundayThresholdMins && workMins > 0) {
+        // Holiday work hours from OT row or IN/OUT
+        const holidayWorkMins = sheetOTMinutes > 0 ? sheetOTMinutes : calculateWorkMinutes(inTime, outTime);
+        const holidayThresholdMins = config.sundayHalfDayThreshold * 60;
+        
+        if (holidayWorkMins > 0) {
+          if (config.enableHalfDay && holidayWorkMins < holidayThresholdMins) {
             dayValue = 0.5;
             isHalfDay = true;
             halfDayCount++;
-          } else if (workMins > 0) {
+          } else {
             dayValue = 1;
           }
-        } else {
+          
+          // Holiday work = OT
+          if (config.enableOvertime && holidayWorkMins > 0) {
+            otMinutes = holidayWorkMins;
+          }
+        } else if (!hasOut) {
           dayValue = 1; // HL worked but no out punch - count as full
         }
         
