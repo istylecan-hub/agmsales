@@ -25,8 +25,11 @@ export const exportSalaryToExcel = (results, summary) => {
     'Absent Days': r.absentDays,
     'OT Hours': r.otHours,
     'OT Days': r.otDays,
+    'Short Hours': r.shortHours || 0,
+    'Short Days': r.shortDays || 0,
     'Gross Salary': r.grossSalary,
     'OT Amount': r.otAmount,
+    'Short Deduction': r.shortDeduction || 0,
     'Total Salary': r.totalSalary,
   }));
   
@@ -49,8 +52,11 @@ export const exportSalaryToExcel = (results, summary) => {
     'Absent Days': results.reduce((s, r) => s + r.absentDays, 0),
     'OT Hours': results.reduce((s, r) => s + r.otHours, 0).toFixed(2),
     'OT Days': results.reduce((s, r) => s + r.otDays, 0).toFixed(2),
-    'Gross Salary': summary.totalSalary - summary.totalOT,
+    'Short Hours': results.reduce((s, r) => s + (r.shortHours || 0), 0).toFixed(2),
+    'Short Days': results.reduce((s, r) => s + (r.shortDays || 0), 0).toFixed(2),
+    'Gross Salary': summary.totalSalary - summary.totalOT + (summary.totalShortDeduction || 0),
     'OT Amount': summary.totalOT,
+    'Short Deduction': summary.totalShortDeduction || 0,
     'Total Salary': summary.totalSalary,
   });
   
