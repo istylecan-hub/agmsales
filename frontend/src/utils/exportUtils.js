@@ -180,21 +180,20 @@ export const exportSalaryToPDF = (results, summary) => {
       0: { cellWidth: 8 },
       1: { cellWidth: 12 },
       2: { cellWidth: 25 },
-      3: { cellWidth: 18 },
+      3: { cellWidth: 15 },
       4: { cellWidth: 18, halign: 'right' },
       5: { cellWidth: 12, halign: 'center' },
       6: { cellWidth: 10, halign: 'center' },
       7: { cellWidth: 10, halign: 'center' },
-      8: { cellWidth: 10, halign: 'center' },
-      9: { cellWidth: 10, halign: 'center' },
+      8: { cellWidth: 12, halign: 'center' },
+      9: { cellWidth: 12, halign: 'center' },
       10: { cellWidth: 12, halign: 'center' },
-      11: { cellWidth: 12, halign: 'center' },
-      12: { cellWidth: 12, halign: 'center' },
-      13: { cellWidth: 18, halign: 'right' },
-      14: { cellWidth: 16, halign: 'right' },
-      15: { cellWidth: 18, halign: 'right' },
+      11: { cellWidth: 18, halign: 'right' },
+      12: { cellWidth: 16, halign: 'right' },
+      13: { cellWidth: 16, halign: 'right' },
+      14: { cellWidth: 18, halign: 'right' },
     },
-    margin: { left: 8, right: 8 },
+    margin: { left: 5, right: 5 },
   });
   
   const date = new Date().toISOString().split('T')[0];
@@ -215,6 +214,7 @@ export const exportEmployeeBreakdownToExcel = (employee) => {
     'Day Value': day.dayValue,
     'Half Day': day.isHalfDay ? 'Yes' : 'No',
     'OT Minutes': day.otMinutes,
+    'Short Minutes': day.shortMinutes || 0,
   }));
   
   const worksheet = XLSX.utils.json_to_sheet(data);
