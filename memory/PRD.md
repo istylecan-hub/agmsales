@@ -18,59 +18,42 @@ Build a complete Salary Calculator web application for a garment manufacturing c
 ### Static Features
 1. Employee Master Management (CRUD)
 2. Attendance Upload from biometric machine (10-row-per-employee format)
-3. Salary Configuration (10+ rules: OT, half-day, sandwich, etc.)
+3. Salary Configuration (10+ rules: OT, half-day, sandwich, short hours, etc.)
 4. Salary Report with drill-down
 5. Excel/PDF export
 6. English/Hindi language toggle
 7. Dark/Light mode
 
-## What's Been Implemented (Feb 16, 2026)
+## What's Been Implemented
 
-### Section 1: Employee Master ✅
-- Add/Edit/Delete employees
-- Import from Excel (.xlsx/.xls)
-- Export to Excel
-- Search and filter by name, code, department
-- Status management (Active/Inactive)
-- Data persists in localStorage
+### Feb 16, 2026 - Initial MVP
+- Employee Master CRUD with Excel import/export
+- Attendance Upload with 10-row format parsing
+- Salary Configuration with all rules
+- Salary Reports with Excel/PDF download
 
-### Section 2: Attendance Upload ✅
-- Drag-and-drop Excel file upload
-- Parses 10-row-per-employee biometric format
-- Detects days in month, employees
-- Shows preview with IN days count
-- Warns about unmatched employees (in attendance but not in master)
-- Info about missing employees (in master but not in attendance)
+### Feb 16, 2026 - Feature Update
+**1. Sunday Working** ✅
+- Sunday worked shown separately in dedicated column
+- Counts as extra working day with separate pay
 
-### Section 3: Salary Configuration ✅
-- 3A. Attendance Detection (IN/OUT time based)
-- 3B. Working Hours Standard (weekday/Sunday)
-- 3C. Overtime Rules (grace period, conversion)
-- 3D. Half Day Rule (thresholds)
-- 3E. Sunday Working (extra day, missing punch handling)
-- 3F. Holiday Rules (paid HL, HL worked)
-- 3H. Sandwich Rule (extended, for WO and HL)
-- 3I. Zero Attendance Rule
-- 3K. Missing Punch Handling
-- Reset to defaults button
+**2. Short Hours Deduction (Section 3L)** ✅
+- Tracks hours worked below 9hr standard
+- Daily short hours summed up
+- Conversion: 9 short hours = 1 day deduction (configurable)
+- Example shown in config: 5 days × 2 hours short = 10 hours = 1.11 day deduction
 
-### Section 4: Salary Report ✅
-- Summary dashboard (total employees, salary, OT, zero salary count)
-- Detailed sortable/filterable table
-- Employee drill-down modal with daily breakdown
-- Download Excel (formatted with headers, colors, totals)
-- Download PDF (formatted report)
-- Download individual employee breakdown
+**3. Manual Attendance Edit** ✅
+- Search employees in attendance preview
+- Edit button on each employee row
+- Modal to edit IN/OUT times and work hours for any day
+- Changes saved to localStorage
 
-### UI/UX ✅
-- Collapsible sidebar navigation
-- Dark/Light mode toggle
-- English/Hindi language toggle
-- Professional business aesthetic
-- Responsive design (desktop-optimized)
-- Status color coding (green=paid, red=absent, blue=holiday, orange=OT)
-- Toast notifications
-- Progress tracking wizard
+### Updated UI Elements
+- Summary Dashboard: 5 cards (Employees, Salary, OT, Short Ded., Zero Salary)
+- Salary Table: Added Short Hrs and Short Ded. columns
+- Employee Detail Modal: Short Hours shown in summary, Short (min) column in breakdown
+- Excel/PDF exports include short hours data
 
 ## Prioritized Backlog
 
@@ -89,7 +72,6 @@ Build a complete Salary Calculator web application for a garment manufacturing c
 - [ ] Multi-month comparison
 
 ## Next Tasks
-1. Test with real attendance Excel files from biometric machines
+1. Test with real biometric attendance Excel files
 2. Add data validation for edge cases
 3. Add print CSS for reports
-4. Consider adding charts to dashboard
