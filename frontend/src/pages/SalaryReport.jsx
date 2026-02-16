@@ -479,7 +479,7 @@ export default function SalaryReport() {
           {selectedEmployee && (
             <div className="space-y-4">
               {/* Employee Summary */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-secondary/30 rounded-lg">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 p-4 bg-secondary/30 rounded-lg">
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground">Monthly Salary</p>
                   <p className="font-bold font-[JetBrains_Mono]">₹{selectedEmployee.monthlySalary.toLocaleString('en-IN')}</p>
@@ -491,6 +491,10 @@ export default function SalaryReport() {
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground">OT Hours</p>
                   <p className="font-bold font-[JetBrains_Mono] text-orange-500">{selectedEmployee.otHours}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground">Short Hours</p>
+                  <p className="font-bold font-[JetBrains_Mono] text-red-500">{selectedEmployee.shortHours || 0}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground">Total Salary</p>
