@@ -82,8 +82,11 @@ export const exportSalaryToExcel = (results, summary) => {
     { wch: 10 }, // Absent
     { wch: 10 }, // OT Hours
     { wch: 10 }, // OT Days
+    { wch: 10 }, // Short Hours
+    { wch: 10 }, // Short Days
     { wch: 12 }, // Gross
     { wch: 12 }, // OT Amount
+    { wch: 12 }, // Short Deduction
     { wch: 12 }, // Total
   ];
   worksheet['!cols'] = colWidths;
