@@ -356,9 +356,16 @@ export default function EmployeeMaster() {
                       </TableCell>
                       <TableCell>{emp.dateOfJoining || '-'}</TableCell>
                       <TableCell>
-                        <Badge variant={emp.status === 'active' ? 'default' : 'secondary'}>
-                          {emp.status || 'active'}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={emp.status === 'active' ? 'default' : 'secondary'}>
+                            {emp.status || 'active'}
+                          </Badge>
+                          {emp.onlySundayNoOT && (
+                            <Badge variant="outline" className="text-orange-500 border-orange-500">
+                              No OT
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
