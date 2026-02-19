@@ -14,10 +14,28 @@ from datetime import datetime, timezone
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# MongoDB connection with error handling
+mongo_url = os.environ.get('MONGO_URL', '')
+db_name = os.environ.get('DB_NAME', 'agm_sales')
+
+# Initialize client and db as None, connect lazily
+client = None
+db = None
+
+async def get_database():
+    global client, db
+    if client is None:
+        try:
+            client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=5000)
+            db = client[db_name]
+            # Test connection
+            await client.admin.command('ping')
+            logging.info("MongoDB connected successfully")
+        except Exception as e:
+            logging.warning(f"MongoDB connection failed: {e}. App will still run (frontend uses localStorage).")
+            client = None
+            db = None
+    return db
 
 # Create the main app without a prefix
 app = FastAPI()
