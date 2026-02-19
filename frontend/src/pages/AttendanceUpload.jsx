@@ -221,28 +221,29 @@ export default function AttendanceUpload() {
   };
 
   const handleProceed = () => {
-    // Apply manual holidays to attendance data before proceeding
-    if (manualHolidays.length > 0 && attendanceData) {
-      const updatedEmployees = attendanceData.employees.map(emp => ({
-        ...emp,
-        dailyData: emp.dailyData.map(day => {
-          if (manualHolidays.includes(day.day)) {
-            return {
-              ...day,
-              isHoliday: true,
-              status: 'HL',
-            };
-          }
-          return day;
-        }),
-      }));
-      
-      setAttendanceData({
-        ...attendanceData,
-        employees: updatedEmployees,
-        manualHolidays: manualHolidays,
-      });
-    }
+    // Apply manual holidays and correct days in month before proceeding
+    const updatedEmployees = (attendanceData?.employees || []).map(emp => ({
+      ...emp,
+      dailyData: emp.dailyData.map(day => {
+        if (manualHolidays.includes(day.day)) {
+          return {
+            ...day,
+            isHoliday: true,
+            status: 'HL',
+          };
+        }
+        return day;
+      }),
+    }));
+    
+    setAttendanceData({
+      ...attendanceData,
+      employees: updatedEmployees,
+      manualHolidays: manualHolidays,
+      daysInMonth: correctDaysInMonth, // Use selected month's correct days
+      selectedMonth: selectedMonth,
+      selectedYear: selectedYear,
+    });
     
     setCurrentStep(3);
     navigate('/configuration');
