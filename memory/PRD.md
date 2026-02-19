@@ -1,150 +1,152 @@
-# AGM SALES - Salary Calculator Application
+# AGM SALES - Multi-Module Business Application
 
 ## Original Problem Statement
-Build a complete Salary Calculator web application for a garment manufacturing company (AGM Sales) that processes monthly attendance machine data, allows configurable salary rules, manages employee master data, and generates downloadable salary reports in Excel format.
+Build a complete business application for AGM Sales garment manufacturing company with two core modules:
+1. **Salary Calculator**: Process monthly attendance data and calculate salaries
+2. **Invoice Extractor**: Extract structured data from PDF invoices (Amazon, Meesho, Fashnear)
 
 ## Architecture
-- **Frontend**: React with shadcn/ui components, React Router, localStorage persistence
-- **Data Storage**: Client-side localStorage (no backend needed)
-- **Excel Processing**: SheetJS (xlsx) library for reading/writing Excel files
-- **PDF Generation**: jsPDF with autoTable plugin
-- **UI**: Tailwind CSS with custom dark/light themes
-
-## User Personas
-1. **HR/Payroll Staff**: Process monthly salaries, configure rules, download reports
-2. **Office Administrators**: Manage employee master data, import/export Excel files
-
-## Core Requirements
-### Static Features
-1. Employee Master Management (CRUD)
-2. Attendance Upload from biometric machine (10-row-per-employee format)
-3. Salary Configuration (10+ rules: OT, half-day, sandwich, short hours, etc.)
-4. Salary Report with drill-down
-5. Excel/PDF export
-6. English/Hindi language toggle
-7. Dark/Light mode
-
-## Salary Calculation Formula (UPDATED Feb 19, 2026)
-
-### Key Formula:
 ```
-Total Salary = (Monthly Salary / Days in Month) × Total Payable Days
+/app/
+├── backend/
+│   ├── server.py              # Main FastAPI server
+│   ├── invoice_extractor.py   # Invoice extraction module
+│   ├── uploads/               # PDF storage
+│   └── exports/               # Generated CSV/Excel files
+│
+└── frontend/
+    └── src/
+        ├── pages/
+        │   ├── Dashboard.jsx
+        │   ├── EmployeeMaster.jsx
+        │   ├── AttendanceUpload.jsx
+        │   ├── SalaryConfiguration.jsx
+        │   ├── SalaryReport.jsx
+        │   └── InvoiceExtractor.jsx  # NEW
+        ├── components/
+        │   └── Layout.jsx
+        ├── context/
+        │   └── AppContext.js
+        └── utils/
+            ├── salaryCalculator.js
+            ├── excelParser.js
+            └── exportUtils.js
+```
 
+## Tech Stack
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 19 + Tailwind CSS + Shadcn/UI |
+| Backend | FastAPI (Python) |
+| Database | MongoDB (Atlas for production) |
+| AI | OpenAI GPT-5.2 (via Emergent LLM Key) |
+| PDF Processing | PyPDF2 + pytesseract (OCR) |
+| Excel | SheetJS (frontend), openpyxl (backend) |
+
+---
+
+## MODULE 1: Salary Calculator
+
+### Salary Calculation Formula
+```
+Present Days = Days in Month - Absent Days - Sandwich Days
 Total Payable Days = Present Days + Sunday Working Days + OT Days
+Total Salary = (Monthly Salary / Days in Month) × Total Payable Days
 ```
 
-### Calculation Rules:
-1. **Present Days**: Count of weekdays employee came to work
-2. **Sunday Working Days**: Count of Sundays employee came and worked 8+ hours (or within 15 min tolerance)
-3. **OT Hours**: Hours worked beyond standard (9 hrs weekday, 8 hrs Sunday)
-4. **Short Hours**: Hours short of standard (only if > 15 min short)
-5. **Net OT Hours**: OT Hours - Short Hours
-6. **OT Days**: Net OT Hours ÷ 9 (configurable)
+### Features
+- ✅ Employee Master (CRUD + Excel Import/Export)
+- ✅ Attendance Upload (10-row format)
+- ✅ Month/Year Selection
+- ✅ Holiday Management
+- ✅ Configurable Salary Rules (10+ options)
+- ✅ OT Calculation (9 hrs weekday, 8 hrs Sunday)
+- ✅ 15 min tolerance rule
+- ✅ Sandwich rule for WO/HL
+- ✅ "Only Sunday, No OT" per employee option
+- ✅ Net OT = OT Hours - Short Hours
+- ✅ Excel/PDF Reports
+- ✅ Individual Salary Slips
 
-### Tolerance Rule:
-- If employee is 15-20 minutes short, still count as 1 full day
-- Only deduct short hours if > 15 minutes short
+---
 
-### "Only Sunday, No OT" Option:
-- Per-employee setting
-- When enabled: Employee gets Sunday working pay but no OT pay
+## MODULE 2: Invoice Extractor (NEW)
 
-## What's Been Implemented
+### Features
+- ✅ PDF Upload (Drag & Drop, Bulk)
+- ✅ AI Extraction (GPT-5.2 via Emergent LLM Key)
+- ✅ Regex Fallback (No credits mode)
+- ✅ OCR for Scanned PDFs
+- ✅ Supports: Amazon, Meesho, Fashnear invoices
+- ✅ Extracts: Invoice #, Date, GSTIN, Line Items, HSN Codes, Tax
+- ✅ View by Service Provider
+- ✅ CSV & Excel Export (5 sheets)
 
-### Feb 16, 2026 - Initial MVP
-- Employee Master CRUD with Excel import/export
-- Attendance Upload with 10-row format parsing
-- Salary Configuration with all rules
-- Salary Reports with Excel/PDF download
+### API Endpoints
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/invoice/upload` | Upload PDF files |
+| POST | `/api/invoice/extract/{job_id}` | Start extraction |
+| GET | `/api/invoice/job/{job_id}` | Get job status |
+| GET | `/api/invoice/export/csv/{job_id}` | Download CSV |
+| GET | `/api/invoice/export/excel/{job_id}` | Download Excel |
+| DELETE | `/api/invoice/job/{job_id}` | Delete job |
 
-### Feb 16, 2026 - Feature Update
-**1. Sunday Working** ✅
-- Sunday worked shown separately in dedicated column
-- Counts as extra working day with separate pay
+---
 
-**2. Short Hours Deduction (Section 3L)** ✅
-- Tracks hours worked below 9hr standard
-- Daily short hours summed up
-- Conversion: 9 short hours = 1 day deduction (configurable)
+## Deployment
+- **Live URL**: https://salary.agmsales.live
+- **Cost**: 50 credits/month
+- **Database**: MongoDB Atlas
 
-**3. Manual Attendance Edit** ✅
-- Search employees in attendance preview
-- Edit button on each employee row
-- Modal to edit IN/OUT times and work hours for any day
+---
 
-### Feb 19, 2026 - Salary Formula Simplification ✅
-**1. Simplified Calculation Logic**
-- All calculations now derived ONLY from IN/OUT times
-- Removed dependency on attendance sheet's OT, Work Hours, Status columns
-- Formula: `Salary = (Monthly Salary / Days in Month) × Total Payable Days`
-- Where: `Total Payable Days = Present Days + Sunday Working Days + OT Days`
+## Completed Work (Feb 19, 2026)
 
-**2. "Only Sunday Pay, No OT" Option** ✅
-- Added per-employee setting in Employee Master
-- Toggle in Add/Edit Employee modal
-- "No OT" badge displayed for applicable employees
-- When enabled: Employee gets Sunday working pay but no overtime
+### Session 1: Salary Calculator MVP
+- Employee Management with Excel import/export
+- Attendance processing (10-row format)
+- Salary configuration (10+ rules)
+- Reports with Excel/PDF download
 
-**3. Short Hours Tolerance** ✅
-- New configurable tolerance (default: 15 minutes)
-- If employee is within tolerance of standard hours, count as full day
-- Only track short hours if > tolerance minutes short
+### Session 2: Salary Logic Refinement
+- Sunday working as separate count
+- Short hours deduction
+- Manual attendance edit
+- Holiday management
 
-**4. Updated Configuration UI**
-- Removed obsolete "Use OT from Attendance Sheet" toggle
-- Added Short Hours Tolerance (mins) input
-- Updated formula explanations in Hindi
+### Session 3: Integration & Deployment
+- Simplified salary formula (Present Days = Month - Absent - Sandwich)
+- "Only Sunday, No OT" option per employee
+- 15 min tolerance rule
+- Month/Year selector for attendance
+- localStorage persistence fix
+- **Invoice Extractor module integrated**
+- Deployed to production
 
-**5. Updated Salary Report**
-- New columns: Net OT, OT Days, Total Payable Days
-- Employee detail modal shows complete formula breakdown
-- Calculation transparency for HR verification
+---
 
-**6. localStorage Persistence Fix** ✅
-- Fixed race condition causing data loss on navigation
-- Used lazy initialization from localStorage
-- Added isInitialLoadComplete ref to prevent overwrites
+## Backlog
 
-## Updated UI Elements
-- Summary Dashboard: 5 cards (Employees, Salary, OT, Short Ded., Zero Salary)
-- Salary Table: OT Hrs, Short Hrs, Net OT, OT Days, Payable Days, Total columns
-- Employee Detail Modal: Complete formula breakdown with values
-- Excel/PDF exports include all salary components
-
-## Key Files Reference
-- `/app/frontend/src/utils/salaryCalculator.js` - Core calculation engine
-- `/app/frontend/src/pages/EmployeeMaster.jsx` - Employee CRUD with onlySundayNoOT
-- `/app/frontend/src/pages/SalaryConfiguration.jsx` - Config UI
-- `/app/frontend/src/pages/SalaryReport.jsx` - Report with new columns
-- `/app/frontend/src/context/AppContext.js` - State management & persistence
-- `/app/frontend/src/utils/constants.js` - Default config & translations
-
-## Prioritized Backlog
-
-### P0 (Must Have) - COMPLETED ✅
-- All core features implemented and tested
-- Salary formula simplified as per user requirement
-- "Only Sunday, No OT" option added
-- localStorage persistence fixed
-
-### P1 (Should Have) - Future
-- [ ] Support CSV import/export
+### P1 (Should Have)
+- [ ] Test Invoice Extractor with real invoices
+- [ ] Test Salary Calculator with real attendance data
 - [ ] Print-friendly report view
-- [ ] Data backup/restore functionality
-- [ ] Individual salary slip PDF download (implemented but untested)
 
-### P2 (Nice to Have) - Future
-- [ ] Charts/graphs in dashboard
-- [ ] Attendance trend analysis
-- [ ] Employee-wise salary history
-- [ ] Multi-month comparison
+### P2 (Nice to Have)
+- [ ] Dashboard charts/graphs
+- [ ] Multi-month salary comparison
+- [ ] Invoice history management
+- [ ] Batch salary slip download
 
-## Testing Reports
-- `/app/test_reports/iteration_1.json`
-- `/app/test_reports/iteration_2.json`
-- `/app/test_reports/iteration_3.json` (Latest - Feb 19, 2026)
+---
 
-## Next Tasks
-1. Test with real biometric attendance Excel files
-2. Validate salary calculations against actual payroll
-3. User acceptance testing
+## Key Files
+- `/app/backend/server.py` - Main backend
+- `/app/backend/invoice_extractor.py` - Invoice extraction module
+- `/app/frontend/src/pages/InvoiceExtractor.jsx` - Invoice UI
+- `/app/frontend/src/utils/salaryCalculator.js` - Salary logic
+- `/app/frontend/src/pages/SalaryConfiguration.jsx` - Config UI
+
+## Test Reports
+- `/app/test_reports/iteration_3.json` (Latest)
