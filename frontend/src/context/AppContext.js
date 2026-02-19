@@ -39,6 +39,21 @@ export const AppProvider = ({ children }) => {
     const savedTheme = localStorage.getItem('agm_theme');
     setIsDarkMode(savedTheme === 'dark' || (!savedTheme && prefersDark));
     
+    // Try to load employees from server (MongoDB) if localStorage is empty
+    const loadFromServer = async () => {
+      const localEmployees = storage.getEmployees();
+      if (localEmployees.length === 0) {
+        console.log('[AppContext] No local employees, checking server...');
+        const serverEmployees = await storage.loadEmployeesFromServer();
+        if (serverEmployees && serverEmployees.length > 0) {
+          console.log('[AppContext] Loaded employees from server:', serverEmployees.length);
+          setEmployees(serverEmployees);
+        }
+      }
+    };
+    
+    loadFromServer();
+    
     // Mark initial load as complete
     isInitialLoadComplete.current = true;
   }, []);
