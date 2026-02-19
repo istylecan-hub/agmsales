@@ -53,7 +53,14 @@ export const Layout = ({ children }) => {
       >
         <Icon className="w-5 h-5 flex-shrink-0" />
         {(!sidebarCollapsed || mobile) && (
-          <span className="font-medium text-sm">{t(item.label)}</span>
+          <span className="font-medium text-sm flex items-center gap-2">
+            {t(item.label)}
+            {item.isNew && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-orange-500 text-white rounded-full font-bold">
+                NEW
+              </span>
+            )}
+          </span>
         )}
       </NavLink>
     );
