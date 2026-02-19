@@ -248,49 +248,23 @@ export default function SalaryConfiguration() {
             {config.enableOvertime && (
               <>
                 <Separator />
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="useSheetOT">
-                    Use OT from Attendance Sheet
-                    <span className="block text-xs text-muted-foreground">Recommended: Use OT time from machine's Row 8</span>
-                  </Label>
-                  <Switch
-                    id="useSheetOT"
-                    checked={config.useSheetOT !== false}
-                    onCheckedChange={(v) => updateConfig('useSheetOT', v)}
-                    data-testid="use-sheet-ot-switch"
+                <div>
+                  <Label htmlFor="otConversion">OT to Days Conversion Base (hours)</Label>
+                  <Input
+                    id="otConversion"
+                    type="number"
+                    value={config.otConversionBase}
+                    onChange={(e) => updateConfig('otConversionBase', parseFloat(e.target.value) || 9)}
+                    min="1"
+                    max="24"
+                    data-testid="ot-conversion-input"
                   />
-                </div>
-                <Separator />
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="otGrace">OT Grace Period (minutes)</Label>
-                    <Input
-                      id="otGrace"
-                      type="number"
-                      value={config.otGraceMinutes}
-                      onChange={(e) => updateConfig('otGraceMinutes', parseInt(e.target.value) || 15)}
-                      min="0"
-                      max="60"
-                      data-testid="ot-grace-input"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">Only used if not using sheet OT</p>
-                  </div>
-                  <div>
-                    <Label htmlFor="otConversion">OT to Days Conversion Base</Label>
-                    <Input
-                      id="otConversion"
-                      type="number"
-                      value={config.otConversionBase}
-                      onChange={(e) => updateConfig('otConversionBase', parseFloat(e.target.value) || 9)}
-                      min="1"
-                      max="24"
-                      data-testid="ot-conversion-input"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">OT hours ÷ this = OT days</p>
-                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Net OT hours ÷ {config.otConversionBase} = OT days</p>
                 </div>
                 <p className="text-xs text-green-600 bg-green-500/10 p-2 rounded">
-                  ✓ OT directly from attendance sheet's OT row (Row 8) use होगा। Sunday और Holiday का full work time OT में count होगा।
+                  ✓ OT = (Work Hours - Standard Hours). Weekday: 9 hrs standard, Sunday: 8 hrs standard.
+                  <br />
+                  ✓ Net OT = OT Hours - Short Hours. फिर OT Days में convert होगा।
                 </p>
               </>
             )}
