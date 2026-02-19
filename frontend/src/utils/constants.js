@@ -10,9 +10,7 @@ export const DEFAULT_CONFIG = {
   
   // 3C. Overtime Rules
   enableOvertime: true,
-  useSheetOT: true, // Use OT from attendance sheet directly (recommended)
-  otGraceMinutes: 15,
-  otConversionBase: 9, // OT hours divided by this gives OT days
+  otConversionBase: 9, // Net OT hours divided by this gives OT days
   
   // 3D. Half Day Rule
   enableHalfDay: true,
@@ -44,6 +42,7 @@ export const DEFAULT_CONFIG = {
   // 3L. Short Hours Deduction
   enableShortHoursDeduction: true,
   shortHoursConversionBase: 9, // short hours divided by this gives deduction days
+  shortHoursTolerance: 15, // 15 minutes tolerance - within this = 1 full day
 };
 
 export const STORAGE_KEYS = {
