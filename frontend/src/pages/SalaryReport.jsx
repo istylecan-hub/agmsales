@@ -322,18 +322,10 @@ export default function SalaryReport() {
                   <TableHead className="text-center">Absent</TableHead>
                   <TableHead className="text-center">OT Hrs</TableHead>
                   <TableHead className="text-center">Short Hrs</TableHead>
-                  <TableHead className="text-right">Gross</TableHead>
-                  <TableHead className="text-right">OT Amt</TableHead>
-                  <TableHead className="text-right">Short Ded.</TableHead>
-                  <TableHead 
-                    className="text-right cursor-pointer hover:bg-secondary/50"
-                    onClick={() => handleSort('totalSalary')}
-                  >
-                    <div className="flex items-center justify-end gap-1">
-                      Total
-                      <ArrowUpDown className="w-3 h-3" />
-                    </div>
-                  </TableHead>
+                  <TableHead className="text-center">Net OT</TableHead>
+                  <TableHead className="text-center">OT Days</TableHead>
+                  <TableHead className="text-center">Payable</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
                   <TableHead className="text-center">Details</TableHead>
                 </TableRow>
               </TableHeader>
