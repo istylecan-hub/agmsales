@@ -387,9 +387,13 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
   // Per Day Salary = Monthly Salary / Days in Month
   const perDaySalary = masterEmp.salary / daysInMonth;
   
-  // Total Payable Days = Present Days + Sunday Working Days + OT Days
-  // Note: Holiday working days are treated same as Sunday working days
-  const totalPayableDays = presentDays + sundayWorkedDays + holidayWorkedDays + otDays;
+  // Paid Days = Present Days + Effective WO (Sundays not sandwiched) + Effective HL
+  // These are the base paid days before adding Sunday working and OT
+  const paidDays = presentDays + effectiveWO + effectiveHL;
+  
+  // Total Payable Days = Paid Days + Sunday Working Days + Holiday Working Days + OT Days
+  // Note: Sunday/Holiday working days are EXTRA (on top of base pay)
+  const totalPayableDays = paidDays + sundayWorkedDays + holidayWorkedDays + otDays;
   
   // Total Salary = Per Day Salary × Total Payable Days
   const totalSalary = perDaySalary * totalPayableDays;
