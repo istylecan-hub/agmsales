@@ -74,6 +74,108 @@ async def health_check():
 async def api_health_check():
     return {"status": "healthy", "message": "API is running"}
 
+# ============== EMPLOYEE MASTER CRUD ==============
+
+class EmployeeModel(BaseModel):
+    code: str
+    name: str
+    department: Optional[str] = None
+    salary: float
+    dateOfJoining: Optional[str] = None
+    status: str = "active"
+    onlySundayNoOT: bool = False
+
+class EmployeeResponse(BaseModel):
+    success: bool
+    message: str
+    data: Optional[List[dict]] = None
+
+@api_router.get("/employees")
+async def get_all_employees():
+    """Get all employees from MongoDB"""
+    database = await get_database()
+    if database is None:
+        return {"success": False, "message": "Database not connected", "data": []}
+    
+    try:
+        employees = await database.employees.find({}, {"_id": 0}).to_list(1000)
+        return {"success": True, "message": "Employees loaded", "data": employees}
+    except Exception as e:
+        logging.error(f"Error loading employees: {e}")
+        return {"success": False, "message": str(e), "data": []}
+
+@api_router.post("/employees")
+async def save_employees(employees: List[EmployeeModel]):
+    """Save/Replace all employees in MongoDB"""
+    database = await get_database()
+    if database is None:
+        return {"success": False, "message": "Database not connected"}
+    
+    try:
+        # Delete all existing employees and insert new ones
+        await database.employees.delete_many({})
+        if employees:
+            employees_dict = [emp.model_dump() for emp in employees]
+            await database.employees.insert_many(employees_dict)
+        return {"success": True, "message": f"Saved {len(employees)} employees"}
+    except Exception as e:
+        logging.error(f"Error saving employees: {e}")
+        return {"success": False, "message": str(e)}
+
+@api_router.post("/employees/add")
+async def add_employee(employee: EmployeeModel):
+    """Add a single employee"""
+    database = await get_database()
+    if database is None:
+        return {"success": False, "message": "Database not connected"}
+    
+    try:
+        # Check if employee exists
+        existing = await database.employees.find_one({"code": employee.code})
+        if existing:
+            return {"success": False, "message": "Employee code already exists"}
+        
+        await database.employees.insert_one(employee.model_dump())
+        return {"success": True, "message": "Employee added"}
+    except Exception as e:
+        logging.error(f"Error adding employee: {e}")
+        return {"success": False, "message": str(e)}
+
+@api_router.put("/employees/{code}")
+async def update_employee(code: str, employee: EmployeeModel):
+    """Update an employee"""
+    database = await get_database()
+    if database is None:
+        return {"success": False, "message": "Database not connected"}
+    
+    try:
+        result = await database.employees.update_one(
+            {"code": code},
+            {"$set": employee.model_dump()}
+        )
+        if result.modified_count > 0:
+            return {"success": True, "message": "Employee updated"}
+        return {"success": False, "message": "Employee not found"}
+    except Exception as e:
+        logging.error(f"Error updating employee: {e}")
+        return {"success": False, "message": str(e)}
+
+@api_router.delete("/employees/{code}")
+async def delete_employee_api(code: str):
+    """Delete an employee"""
+    database = await get_database()
+    if database is None:
+        return {"success": False, "message": "Database not connected"}
+    
+    try:
+        result = await database.employees.delete_one({"code": code})
+        if result.deleted_count > 0:
+            return {"success": True, "message": "Employee deleted"}
+        return {"success": False, "message": "Employee not found"}
+    except Exception as e:
+        logging.error(f"Error deleting employee: {e}")
+        return {"success": False, "message": str(e)}
+
 @api_router.post("/status", response_model=StatusCheck)
 async def create_status_check(input: StatusCheckCreate):
     database = await get_database()
