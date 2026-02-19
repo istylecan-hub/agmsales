@@ -80,6 +80,7 @@ export const TRANSLATIONS = {
     attendance: 'Attendance',
     configuration: 'Configuration',
     reports: 'Reports',
+    invoiceExtractor: 'Invoice Extractor',
     addEmployee: 'Add Employee',
     importExcel: 'Import Excel',
     exportExcel: 'Export Excel',
