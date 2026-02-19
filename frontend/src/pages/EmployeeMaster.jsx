@@ -160,6 +160,7 @@ export default function EmployeeMaster() {
       salary: String(employee.salary),
       dateOfJoining: employee.dateOfJoining || '',
       status: employee.status || 'active',
+      onlySundayNoOT: employee.onlySundayNoOT || false,
     });
     setIsEditModalOpen(true);
   };
