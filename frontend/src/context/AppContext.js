@@ -59,9 +59,8 @@ export const AppProvider = ({ children }) => {
   
   // Save employees to localStorage when changed
   useEffect(() => {
-    if (employees.length > 0) {
-      storage.setEmployees(employees);
-    }
+    // Always save employees array (even if empty)
+    storage.setEmployees(employees);
   }, [employees]);
   
   // Save config to localStorage when changed
