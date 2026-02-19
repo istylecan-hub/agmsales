@@ -7,9 +7,11 @@ export const storage = {
   getEmployees: () => {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
-      return data ? JSON.parse(data) : [];
+      const employees = data ? JSON.parse(data) : [];
+      console.log('[Storage] Loaded employees:', employees.length);
+      return employees;
     } catch (e) {
-      console.error('Error reading employees from storage:', e);
+      console.error('[Storage] Error reading employees:', e);
       return [];
     }
   },
@@ -17,9 +19,14 @@ export const storage = {
   setEmployees: (employees) => {
     try {
       localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
+      console.log('[Storage] Saved employees:', employees.length);
       return true;
     } catch (e) {
-      console.error('Error saving employees to storage:', e);
+      console.error('[Storage] Error saving employees:', e);
+      // Check if quota exceeded
+      if (e.name === 'QuotaExceededError') {
+        console.error('[Storage] LocalStorage quota exceeded!');
+      }
       return false;
     }
   },
