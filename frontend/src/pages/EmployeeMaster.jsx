@@ -563,6 +563,22 @@ export default function EmployeeMaster() {
                 </Select>
               </div>
             </div>
+            <div className="flex items-center justify-between p-3 bg-orange-500/10 rounded-lg border border-orange-500/20">
+              <div>
+                <Label htmlFor="edit-onlySundayNoOT" className="text-sm font-medium">
+                  Only Sunday Pay, No OT
+                </Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  इस employee को सिर्फ Sunday working का pay मिलेगा, OT नहीं
+                </p>
+              </div>
+              <Switch
+                id="edit-onlySundayNoOT"
+                checked={formData.onlySundayNoOT}
+                onCheckedChange={(v) => setFormData(prev => ({ ...prev, onlySundayNoOT: v }))}
+                data-testid="edit-only-sunday-no-ot-switch"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditModalOpen(false)} data-testid="cancel-edit-employee">
