@@ -99,6 +99,7 @@ export default function EmployeeMaster() {
       salary: '',
       dateOfJoining: '',
       status: 'active',
+      onlySundayNoOT: false,
     });
   };
 
