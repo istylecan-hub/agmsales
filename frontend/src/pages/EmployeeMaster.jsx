@@ -136,6 +136,7 @@ export default function EmployeeMaster() {
     updateEmployee(selectedEmployee.code, {
       ...formData,
       salary: parseFloat(formData.salary),
+      onlySundayNoOT: formData.onlySundayNoOT || false,
     });
 
     toast.success('Employee updated successfully');
