@@ -174,18 +174,18 @@ export default function Dashboard() {
       </Card>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="hover:shadow-md transition-all duration-200" data-testid="quick-action-employees">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold text-lg">Manage Employees</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Add, edit, or import employee master data
+                  Add, edit, or import employee data
                 </p>
               </div>
               <Button onClick={() => navigate('/employees')} className="gap-2" data-testid="go-to-employees-btn">
-                Go to Employees
+                Go
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
@@ -198,11 +198,31 @@ export default function Dashboard() {
               <div>
                 <h3 className="font-semibold text-lg">Upload Attendance</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Upload monthly attendance Excel file
+                  Upload monthly attendance file
                 </p>
               </div>
               <Button onClick={() => navigate('/attendance')} className="gap-2" data-testid="go-to-attendance-btn">
-                Upload File
+                Upload
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-md transition-all duration-200 border-orange-500/30 bg-orange-500/5" data-testid="quick-action-invoice">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-lg">Invoice Extractor</h3>
+                  <span className="text-[10px] px-1.5 py-0.5 bg-orange-500 text-white rounded-full font-bold">NEW</span>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Extract data from PDF invoices
+                </p>
+              </div>
+              <Button onClick={() => navigate('/invoice-extractor')} className="gap-2 bg-orange-500 hover:bg-orange-600" data-testid="go-to-invoice-btn">
+                Go
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
