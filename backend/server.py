@@ -34,6 +34,8 @@ async def get_database():
             # Test connection
             await client.admin.command('ping')
             logging.info("MongoDB connected successfully")
+            # Set database for invoice extractor module
+            set_invoice_db(db)
         except Exception as e:
             logging.warning(f"MongoDB connection failed: {e}. App will still run (frontend uses localStorage).")
             client = None
