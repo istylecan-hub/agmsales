@@ -42,6 +42,15 @@ class StatusCheckCreate(BaseModel):
 async def root():
     return {"message": "Hello World"}
 
+# Health check endpoint for Kubernetes deployment
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "message": "Backend is running"}
+
+@api_router.get("/health")
+async def api_health_check():
+    return {"status": "healthy", "message": "API is running"}
+
 @api_router.post("/status", response_model=StatusCheck)
 async def create_status_check(input: StatusCheckCreate):
     status_dict = input.model_dump()
