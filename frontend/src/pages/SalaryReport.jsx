@@ -393,12 +393,22 @@ export default function SalaryReport() {
                         <span className="font-mono text-sm">0</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right font-mono">₹{result.grossSalary.toLocaleString('en-IN')}</TableCell>
-                    <TableCell className="text-right font-mono text-orange-500">
-                      {result.otAmount > 0 ? `₹${result.otAmount.toLocaleString('en-IN')}` : '-'}
+                    <TableCell className="text-center">
+                      {(result.netOTHours || 0) > 0 ? (
+                        <Badge className="bg-green-500/10 text-green-600 font-mono">{result.netOTHours || 0}</Badge>
+                      ) : (
+                        <span className="font-mono text-sm">0</span>
+                      )}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-red-500">
-                      {result.shortDeduction > 0 ? `-₹${result.shortDeduction.toLocaleString('en-IN')}` : '-'}
+                    <TableCell className="text-center">
+                      {result.otDays > 0 ? (
+                        <Badge className="bg-blue-500/10 text-blue-500 font-mono">{result.otDays}</Badge>
+                      ) : (
+                        <span className="font-mono text-sm">0</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge className="bg-primary/10 text-primary font-mono font-bold">{result.totalPayableDays}</Badge>
                     </TableCell>
                     <TableCell className="text-right font-mono font-bold">
                       ₹{result.totalSalary.toLocaleString('en-IN')}
