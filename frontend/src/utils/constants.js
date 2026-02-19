@@ -134,6 +134,7 @@ export const TRANSLATIONS = {
     attendance: 'उपस्थिति',
     configuration: 'कॉन्फ़िगरेशन',
     reports: 'रिपोर्ट',
+    invoiceExtractor: 'इनवॉइस एक्सट्रैक्टर',
     addEmployee: 'कर्मचारी जोड़ें',
     importExcel: 'Excel आयात करें',
     exportExcel: 'Excel निर्यात करें',
