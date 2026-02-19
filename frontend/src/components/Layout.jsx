@@ -15,6 +15,7 @@ import {
   Languages,
   ChevronLeft,
   ChevronRight,
+  FileText,
 } from 'lucide-react';
 
 export const Layout = ({ children }) => {
@@ -29,6 +30,7 @@ export const Layout = ({ children }) => {
     { path: '/attendance', icon: Calendar, label: 'attendance' },
     { path: '/configuration', icon: Settings, label: 'configuration' },
     { path: '/reports', icon: FileSpreadsheet, label: 'reports' },
+    { path: '/invoice-extractor', icon: FileText, label: 'invoiceExtractor', isNew: true },
   ];
 
   const NavItem = ({ item, mobile = false }) => {
