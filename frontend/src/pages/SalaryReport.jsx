@@ -550,9 +550,10 @@ export default function SalaryReport() {
                 <p className="font-semibold text-blue-600 mb-2">Calculation Formula:</p>
                 <div className="space-y-1 text-muted-foreground">
                   <p>• Per Day = ₹{selectedEmployee.monthlySalary} ÷ {selectedEmployee.daysInMonth} = ₹{selectedEmployee.perDaySalary.toFixed(2)}</p>
+                  <p>• Present Days = {selectedEmployee.daysInMonth} - {selectedEmployee.absentDays} absent - {selectedEmployee.sandwichDays} sandwich = {selectedEmployee.presentDays}</p>
                   <p>• Net OT = {selectedEmployee.otHours} hrs - {selectedEmployee.shortHours} short hrs = {selectedEmployee.netOTHours || 0} hrs</p>
                   <p>• OT Days = {selectedEmployee.netOTHours || 0} ÷ 9 = {selectedEmployee.otDays} days</p>
-                  <p>• Payable Days = {selectedEmployee.presentDays} + {selectedEmployee.sundayWorked} + {selectedEmployee.otDays} = {selectedEmployee.totalPayableDays}</p>
+                  <p>• Payable Days = {selectedEmployee.presentDays} + {selectedEmployee.sundayWorked} Sun + {selectedEmployee.otDays} OT = {selectedEmployee.totalPayableDays}</p>
                   <p className="font-semibold text-primary">• Total = ₹{selectedEmployee.perDaySalary.toFixed(2)} × {selectedEmployee.totalPayableDays} = ₹{selectedEmployee.totalSalary}</p>
                 </div>
                 {selectedEmployee.onlySundayNoOT && (
