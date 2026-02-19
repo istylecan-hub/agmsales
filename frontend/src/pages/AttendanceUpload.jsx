@@ -375,7 +375,7 @@ export default function AttendanceUpload() {
   const daysArray = useMemo(() => {
     if (!attendanceData) return [];
     const days = [];
-    for (let i = 1; i <= attendanceData.daysInMonth; i++) {
+    for (let i = 1; i <= correctDaysInMonth; i++) {
       const dayData = attendanceData.employees[0]?.dailyData.find(d => d.day === i);
       days.push({
         day: i,
@@ -385,7 +385,7 @@ export default function AttendanceUpload() {
       });
     }
     return days;
-  }, [attendanceData]);
+  }, [attendanceData, correctDaysInMonth]);
 
   return (
     <div className="space-y-6" data-testid="attendance-upload-page">
