@@ -89,8 +89,6 @@ export default function SalaryConfiguration() {
       weekdayStandardHours: 9,
       sundayStandardHours: 8,
       enableOvertime: true,
-      useSheetOT: true,
-      otGraceMinutes: 15,
       otConversionBase: 9,
       enableHalfDay: true,
       weekdayHalfDayThreshold: 4.5,
@@ -107,6 +105,7 @@ export default function SalaryConfiguration() {
       weekdayMissingOutPunch: 'full',
       enableShortHoursDeduction: true,
       shortHoursConversionBase: 9,
+      shortHoursTolerance: 15, // 15 min tolerance
     });
     toast.success('Configuration reset to defaults');
   };
