@@ -520,23 +520,40 @@ export default function SalaryConfiguration() {
             {config.enableShortHoursDeduction && (
               <>
                 <Separator />
-                <div>
-                  <Label htmlFor="shortConversion">Short Hours to Days Conversion Base</Label>
-                  <Input
-                    id="shortConversion"
-                    type="number"
-                    value={config.shortHoursConversionBase}
-                    onChange={(e) => updateConfig('shortHoursConversionBase', parseFloat(e.target.value) || 9)}
-                    min="1"
-                    max="24"
-                    data-testid="short-hours-conversion-input"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Short hours ÷ {config.shortHoursConversionBase} = Deduction days
-                  </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="shortTolerance">Short Hours Tolerance (mins)</Label>
+                    <Input
+                      id="shortTolerance"
+                      type="number"
+                      value={config.shortHoursTolerance || 15}
+                      onChange={(e) => updateConfig('shortHoursTolerance', parseInt(e.target.value) || 15)}
+                      min="0"
+                      max="60"
+                      data-testid="short-hours-tolerance-input"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {config.shortHoursTolerance || 15} min तक short होने पर भी 1 day count होगा
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="shortConversion">Short Hours to Days Base</Label>
+                    <Input
+                      id="shortConversion"
+                      type="number"
+                      value={config.shortHoursConversionBase}
+                      onChange={(e) => updateConfig('shortHoursConversionBase', parseFloat(e.target.value) || 9)}
+                      min="1"
+                      max="24"
+                      data-testid="short-hours-conversion-input"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Short hours ÷ {config.shortHoursConversionBase} = Deduction
+                    </p>
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground bg-red-500/10 p-2 rounded">
-                  Example: If someone works 7 hours instead of 9 hours on 5 days = 10 short hours = {(10 / config.shortHoursConversionBase).toFixed(2)} day deduction
+                  Formula: Net OT = OT Hours - Short Hours → फिर Net OT से salary calculate होगा
                 </p>
               </>
             )}
