@@ -8,6 +8,7 @@ import EmployeeMaster from "./pages/EmployeeMaster";
 import AttendanceUpload from "./pages/AttendanceUpload";
 import SalaryConfiguration from "./pages/SalaryConfiguration";
 import SalaryReport from "./pages/SalaryReport";
+import InvoiceExtractor from "./pages/InvoiceExtractor";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
             <Route path="/attendance" element={<AttendanceUpload />} />
             <Route path="/configuration" element={<SalaryConfiguration />} />
             <Route path="/reports" element={<SalaryReport />} />
+            <Route path="/invoice-extractor" element={<InvoiceExtractor />} />
           </Routes>
         </Layout>
         <Toaster 
