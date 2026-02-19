@@ -67,16 +67,16 @@ export const AppProvider = ({ children }) => {
     }
   }, [config]);
   
-  // Save attendance data when changed
+  // Save attendance data when changed (only after initial load)
   useEffect(() => {
-    if (attendanceData) {
+    if (isInitialLoadComplete.current && attendanceData) {
       storage.setAttendanceData(attendanceData);
     }
   }, [attendanceData]);
   
-  // Save calculation results when changed
+  // Save calculation results when changed (only after initial load)
   useEffect(() => {
-    if (calculationResults) {
+    if (isInitialLoadComplete.current && calculationResults) {
       storage.setLastCalculation(calculationResults);
     }
   }, [calculationResults]);
