@@ -1,6 +1,7 @@
-// Salary calculation engine
-// Only uses IN/OUT times from attendance sheet
-// All calculations (Present, Absent, OT, Short Hours) derived from IN-OUT
+// Salary calculation engine for AGM Sales
+// All calculations based ONLY on IN/OUT times from attendance sheet
+// Formula: Salary = (Monthly Salary / Days in Month) × Total Payable Days
+// Total Payable Days = Present Days + Sunday Working Days + OT Days
 
 import { parseTimeToMinutes, calculateWorkMinutes, hasInTime, normalizeEmpCode } from './excelParser';
 import { DAY_CLASSIFICATIONS } from './constants';
@@ -61,22 +62,45 @@ export const calculateSalaries = (attendanceData, employees, config, daysInMonth
 /**
  * Calculate salary for a single employee
  * 
- * LOGIC:
- * - Only look at IN and OUT times
- * - Work Hours = OUT - IN (calculate ourselves)
- * - Present = IN time exists
- * - Absent = No IN time (and not Sunday/Holiday)
- * - Weekday OT = Work Hours - 9 hours (when positive)
- * - Sunday: 7.5+ hours = 1 full day, >8 hours extra = OT
- * - Short Hours = 9 - Work Hours (when worked but less than 9)
+ * LOGIC (as per user's requirement):
+ * 
+ * 1. Monthly Salary Calculation:
+ *    - Salary = (Monthly Salary / Days in Month) × Total Payable Days
+ *    - Example: Feb has 28 days, salary 10000, worked 10 days = 10000/28*10
+ * 
+ * 2. Present Days:
+ *    - Count all days employee came (excluding Sundays)
+ *    - If employee works 8 hours (or 15-20 min short) = 1 day
+ *    - If more than 15 min short = track in short hours
+ * 
+ * 3. Sunday Working:
+ *    - Sunday is weekly off
+ *    - If employee comes and works 8 hours = 1 Sunday Working Day
+ *    - If 15-20 min short, still count as 1 day
+ *    - Extra hours beyond 8 = OT (unless onlySundayNoOT is enabled)
+ * 
+ * 4. OT Hours:
+ *    - Weekday: Hours worked beyond 9 hours
+ *    - Sunday: Hours worked beyond 8 hours
+ * 
+ * 5. Short Hours:
+ *    - Only if more than 15 minutes short
+ *    - Net OT = OT Hours - Short Hours
+ * 
+ * 6. OT Days:
+ *    - OT Days = Net OT Hours / 9 (conversion base)
+ * 
+ * 7. Total Payable Days = Present Days + Sunday Working Days + OT Days
+ * 
+ * 8. Total Salary = (Monthly Salary / Days in Month) × Total Payable Days
  */
 const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualHolidays = []) => {
   const dailyBreakdown = [];
   let presentDays = 0;
   let sundayWorkedDays = 0;
   let holidayWorkedDays = 0;
-  let rawWODays = 0;
-  let rawHLDays = 0;
+  let rawWODays = 0; // Sundays where employee didn't come
+  let rawHLDays = 0; // Holidays where employee didn't come
   let absentDays = 0;
   let totalOTMinutes = 0;
   let totalCameDays = 0;
@@ -88,8 +112,11 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
   // Config values
   const weekdayStandardMins = (config.weekdayStandardHours || 9) * 60; // 9 hours = 540 mins
   const sundayStandardMins = (config.sundayStandardHours || 8) * 60; // 8 hours = 480 mins
-  const sundayMinThreshold = 7.5 * 60; // 7.5 hours = 450 mins for full day
   const weekdayHalfDayMins = (config.weekdayHalfDayThreshold || 4.5) * 60;
+  const shortHoursTolerance = (config.shortHoursTolerance || 15); // 15 min tolerance
+  
+  // Check if this employee has "Only Sunday, No OT" setting
+  const onlySundayNoOT = masterEmp.onlySundayNoOT === true;
   
   // Process each day
   attEmp.dailyData.forEach((day) => {
@@ -128,19 +155,34 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
         // SUNDAY WORKING
         classification = DAY_CLASSIFICATIONS.SUNDAY_WORKED;
         
-        if (workMins >= sundayMinThreshold) {
-          // 7.5+ hours = 1 full day
-          dayValue = 1;
+        if (hasOut && workMins > 0) {
+          // Calculate how short from 8 hours
+          const shortFromStandard = sundayStandardMins - workMins;
           
-          // Extra hours beyond 8 hours = OT
-          if (config.enableOvertime && workMins > sundayStandardMins) {
-            otMinutes = workMins - sundayStandardMins;
+          if (shortFromStandard <= shortHoursTolerance) {
+            // Within 15 min tolerance OR worked 8+ hours = 1 full day
+            dayValue = 1;
+            
+            // Calculate OT (only if NOT onlySundayNoOT and extra hours beyond 8)
+            if (config.enableOvertime && !onlySundayNoOT && workMins > sundayStandardMins) {
+              otMinutes = workMins - sundayStandardMins;
+            }
+          } else if (workMins >= weekdayHalfDayMins) {
+            // Worked at least 4.5 hours but less than 7.75 hours = still 1 day (as per user requirement)
+            // User said: if 15-20 min short, still count as 1 day
+            // This means minor shortage should still be 1 day
+            dayValue = 1;
+            
+            // Track short minutes (only if more than tolerance)
+            if (config.enableShortHoursDeduction && shortFromStandard > shortHoursTolerance) {
+              shortMinutes = shortFromStandard;
+            }
+          } else if (workMins > 0) {
+            // Very less work - half day
+            dayValue = 0.5;
+            isHalfDay = true;
+            halfDayCount++;
           }
-        } else if (workMins > 0) {
-          // Less than 7.5 hours but came
-          dayValue = 0.5;
-          isHalfDay = true;
-          halfDayCount++;
         } else if (!hasOut) {
           // IN but no OUT - use config setting
           if (config.sundayMissingOutPunch === 'full') {
@@ -158,15 +200,24 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
         // HOLIDAY WORKING (treat like Sunday)
         classification = DAY_CLASSIFICATIONS.HOLIDAY_WORKED;
         
-        if (workMins >= sundayMinThreshold) {
-          dayValue = 1;
-          if (config.enableOvertime && workMins > sundayStandardMins) {
-            otMinutes = workMins - sundayStandardMins;
+        if (hasOut && workMins > 0) {
+          const shortFromStandard = sundayStandardMins - workMins;
+          
+          if (shortFromStandard <= shortHoursTolerance) {
+            dayValue = 1;
+            if (config.enableOvertime && !onlySundayNoOT && workMins > sundayStandardMins) {
+              otMinutes = workMins - sundayStandardMins;
+            }
+          } else if (workMins >= weekdayHalfDayMins) {
+            dayValue = 1;
+            if (config.enableShortHoursDeduction && shortFromStandard > shortHoursTolerance) {
+              shortMinutes = shortFromStandard;
+            }
+          } else if (workMins > 0) {
+            dayValue = 0.5;
+            isHalfDay = true;
+            halfDayCount++;
           }
-        } else if (workMins > 0) {
-          dayValue = 0.5;
-          isHalfDay = true;
-          halfDayCount++;
         } else if (!hasOut) {
           dayValue = 1;
         }
@@ -177,28 +228,31 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
         // REGULAR WEEKDAY
         classification = DAY_CLASSIFICATIONS.PRESENT;
         
-        if (workMins > 0) {
-          // Half day check
-          if (config.enableHalfDay && workMins < weekdayHalfDayMins) {
+        if (hasOut && workMins > 0) {
+          // Calculate how short from 9 hours
+          const shortFromStandard = weekdayStandardMins - workMins;
+          
+          if (shortFromStandard <= shortHoursTolerance) {
+            // Within 15 min tolerance OR worked 9+ hours = 1 full day
+            dayValue = 1;
+            
+            // Calculate OT (only if NOT onlySundayNoOT)
+            if (config.enableOvertime && !onlySundayNoOT && workMins > weekdayStandardMins) {
+              otMinutes = workMins - weekdayStandardMins;
+            }
+          } else if (workMins >= weekdayHalfDayMins) {
+            // Worked 4.5+ hours but less than 8.75 hours
+            dayValue = 1;
+            
+            // Track short minutes (only if more than tolerance)
+            if (config.enableShortHoursDeduction && shortFromStandard > shortHoursTolerance) {
+              shortMinutes = shortFromStandard;
+            }
+          } else if (workMins > 0) {
+            // Less than 4.5 hours = half day
             dayValue = 0.5;
             isHalfDay = true;
             halfDayCount++;
-          } else {
-            dayValue = 1;
-          }
-          
-          // Short hours deduction (worked but less than 9 hours)
-          if (config.enableShortHoursDeduction && workMins < weekdayStandardMins && workMins >= weekdayHalfDayMins) {
-            shortMinutes = weekdayStandardMins - workMins;
-          }
-          
-          // WEEKDAY OT: (OUT - IN) - 9 hours (when positive)
-          if (config.enableOvertime && workMins > weekdayStandardMins) {
-            const graceMins = config.otGraceMinutes || 0;
-            const overtimeMins = workMins - weekdayStandardMins;
-            if (overtimeMins > graceMins) {
-              otMinutes = overtimeMins;
-            }
           }
         } else if (!hasOut) {
           // IN exists but no OUT - use config setting
@@ -285,6 +339,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
       absentDays: daysInMonth,
       otMinutes: 0,
       otHours: 0,
+      netOTHours: 0,
       otDays: 0,
       shortMinutes: 0,
       shortHours: 0,
@@ -297,10 +352,11 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
       halfDayCount: 0,
       dailyBreakdown,
       isZeroAttendance: true,
+      onlySundayNoOT: onlySundayNoOT,
     };
   }
   
-  // Apply sandwich rule
+  // Apply sandwich rule (if enabled)
   let sandwichWO = 0;
   let sandwichHL = 0;
   
@@ -314,34 +370,38 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
   const effectiveHL = Math.max(0, rawHLDays - sandwichHL);
   const sandwichDays = sandwichWO + sandwichHL;
   
-  // Calculate OT
+  // Calculate OT Hours
   const otHours = totalOTMinutes / 60;
-  const otDays = otHours / (config.otConversionBase || 9);
   
-  // Calculate short hours deduction
+  // Calculate short hours
   const shortHours = totalShortMinutes / 60;
-  const shortDays = config.enableShortHoursDeduction 
-    ? shortHours / (config.shortHoursConversionBase || 9) 
-    : 0;
   
-  // SALARY CALCULATION
+  // NET OT = OT Hours - Short Hours (as per user requirement)
+  const netOTHours = Math.max(0, otHours - shortHours);
+  
+  // OT Days = Net OT Hours / 9 (conversion base)
+  const otConversionBase = config.otConversionBase || 9;
+  const otDays = netOTHours / otConversionBase;
+  
+  // SALARY CALCULATION (as per user's exact formula)
+  // Per Day Salary = Monthly Salary / Days in Month
   const perDaySalary = masterEmp.salary / daysInMonth;
-  const paidDays = presentDays + effectiveWO + effectiveHL;
   
-  // Total Payable = Present + Sunday Worked + Holiday Worked + OT Days - Short Days
-  const totalPayableDays = presentDays + sundayWorkedDays + holidayWorkedDays + otDays - shortDays;
+  // Total Payable Days = Present Days + Sunday Working Days + OT Days
+  // Note: Holiday working days are treated same as Sunday working days
+  const totalPayableDays = presentDays + sundayWorkedDays + holidayWorkedDays + otDays;
   
-  // Gross salary based on present + effective WO/HL + Sunday/Holiday worked
-  const grossSalary = perDaySalary * (paidDays + sundayWorkedDays + holidayWorkedDays);
+  // Total Salary = Per Day Salary × Total Payable Days
+  const totalSalary = perDaySalary * totalPayableDays;
   
-  // OT amount
+  // For display purposes, calculate component breakdowns
+  const baseSalary = perDaySalary * presentDays;
+  const sundayAmount = perDaySalary * sundayWorkedDays;
+  const holidayAmount = perDaySalary * holidayWorkedDays;
   const otAmount = perDaySalary * otDays;
   
-  // Short deduction
-  const shortDeduction = perDaySalary * shortDays;
-  
-  // TOTAL SALARY = Gross + OT - Short Deduction
-  const totalSalary = grossSalary + otAmount - shortDeduction;
+  // Short hours tracking (for reference, but deduction is already in net OT)
+  const shortDays = shortHours / (config.shortHoursConversionBase || 9);
   
   return {
     code: masterEmp.code,
@@ -358,27 +418,33 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
     effectiveWO,
     effectiveHL,
     sandwichDays,
-    paidDays: Math.round(paidDays * 100) / 100,
+    paidDays: Math.round(presentDays * 100) / 100, // For backward compatibility
     absentDays,
     otMinutes: totalOTMinutes,
     otHours: Math.round(otHours * 100) / 100,
+    netOTHours: Math.round(netOTHours * 100) / 100,
     otDays: Math.round(otDays * 100) / 100,
     shortMinutes: totalShortMinutes,
     shortHours: Math.round(shortHours * 100) / 100,
     shortDays: Math.round(shortDays * 100) / 100,
-    shortDeduction: Math.round(shortDeduction),
+    shortDeduction: Math.round(perDaySalary * shortDays), // For reference
     totalPayableDays: Math.round(totalPayableDays * 100) / 100,
-    grossSalary: Math.round(grossSalary),
+    baseSalary: Math.round(baseSalary),
+    sundayAmount: Math.round(sundayAmount),
+    holidayAmount: Math.round(holidayAmount),
+    grossSalary: Math.round(baseSalary + sundayAmount + holidayAmount),
     otAmount: Math.round(otAmount),
     totalSalary: Math.round(totalSalary),
     halfDayCount,
     dailyBreakdown,
     isZeroAttendance: false,
+    onlySundayNoOT: onlySundayNoOT,
   };
 };
 
 /**
  * Apply extended sandwich rule
+ * A WO/HL day is NOT paid if both nearest working days on either side are Absent
  */
 const applySandwichRule = (classifications, config) => {
   let sandwichWO = 0;
@@ -467,6 +533,7 @@ const calculateSummary = (results) => {
   const totalShortDeduction = results.reduce((sum, r) => sum + (r.shortDeduction || 0), 0);
   const zeroSalaryCount = results.filter(r => r.totalSalary === 0).length;
   const halfDayCount = results.reduce((sum, r) => sum + r.halfDayCount, 0);
+  const onlySundayNoOTCount = results.filter(r => r.onlySundayNoOT).length;
   
   return {
     totalEmployees,
@@ -475,5 +542,6 @@ const calculateSummary = (results) => {
     totalShortDeduction,
     zeroSalaryCount,
     halfDayCount,
+    onlySundayNoOTCount,
   };
 };
