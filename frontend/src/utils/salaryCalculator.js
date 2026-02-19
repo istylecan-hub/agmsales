@@ -1,4 +1,7 @@
 // Salary calculation engine
+// Only uses IN/OUT times from attendance sheet
+// All calculations (Present, Absent, OT, Short Hours) derived from IN-OUT
+
 import { parseTimeToMinutes, calculateWorkMinutes, hasInTime, normalizeEmpCode } from './excelParser';
 import { DAY_CLASSIFICATIONS } from './constants';
 
@@ -37,7 +40,8 @@ export const calculateSalaries = (attendanceData, employees, config, daysInMonth
       attEmp,
       masterEmployee,
       config,
-      daysInMonth
+      daysInMonth,
+      attendanceData.manualHolidays || []
     );
     
     results.push(result);
@@ -57,13 +61,16 @@ export const calculateSalaries = (attendanceData, employees, config, daysInMonth
 /**
  * Calculate salary for a single employee
  * 
- * Formula:
- * - Weekday OT: (OUT - IN) - 9 hours (when positive)
- * - Sunday: 7.5+ hours = 1 full day, >8 hours = extra goes to OT
- * - Total Payable Days = Present Days + Sunday Worked + OT Days
- * - Salary = Per Day × Total Payable Days
+ * LOGIC:
+ * - Only look at IN and OUT times
+ * - Work Hours = OUT - IN (calculate ourselves)
+ * - Present = IN time exists
+ * - Absent = No IN time (and not Sunday/Holiday)
+ * - Weekday OT = Work Hours - 9 hours (when positive)
+ * - Sunday: 7.5+ hours = 1 full day, >8 hours extra = OT
+ * - Short Hours = 9 - Work Hours (when worked but less than 9)
  */
-const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
+const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualHolidays = []) => {
   const dailyBreakdown = [];
   let presentDays = 0;
   let sundayWorkedDays = 0;
@@ -91,14 +98,16 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
       dayName,
       inTime,
       outTime,
-      workHours,
-      otTime,
-      status,
       isSunday,
-      isHoliday,
-      hasIn,
-      hasOut,
     } = day;
+    
+    // Check if this day is a manual holiday
+    const isManualHoliday = manualHolidays.includes(dayNum);
+    const isHoliday = isManualHoliday || day.isHoliday;
+    
+    // Determine if employee has IN time
+    const hasIn = hasInTime(inTime);
+    const hasOut = hasInTime(outTime);
     
     let classification = DAY_CLASSIFICATIONS.ABSENT;
     let dayValue = 0;
@@ -106,12 +115,11 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
     let isHalfDay = false;
     let shortMinutes = 0;
     
-    // Calculate actual work minutes from IN-OUT
-    const actualWorkMins = (hasIn && hasOut) ? calculateWorkMinutes(inTime, outTime) : 0;
-    // Also get work hours from sheet (Row 6)
-    const sheetWorkMins = parseTimeToMinutes(workHours);
-    // Use actual work minutes, fallback to sheet
-    const workMins = actualWorkMins > 0 ? actualWorkMins : sheetWorkMins;
+    // CALCULATE WORK MINUTES FROM IN-OUT (not from sheet's work hours)
+    let workMins = 0;
+    if (hasIn && hasOut) {
+      workMins = calculateWorkMinutes(inTime, outTime);
+    }
     
     if (hasIn) {
       totalCameDays++;
@@ -120,24 +128,21 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
         // SUNDAY WORKING
         classification = DAY_CLASSIFICATIONS.SUNDAY_WORKED;
         
-        // For Sunday, use OT row time or calculate from IN-OUT
-        const sundayWorkMins = workMins > 0 ? workMins : parseTimeToMinutes(otTime);
-        
-        if (sundayWorkMins >= sundayMinThreshold) {
+        if (workMins >= sundayMinThreshold) {
           // 7.5+ hours = 1 full day
           dayValue = 1;
           
           // Extra hours beyond 8 hours = OT
-          if (config.enableOvertime && sundayWorkMins > sundayStandardMins) {
-            otMinutes = sundayWorkMins - sundayStandardMins;
+          if (config.enableOvertime && workMins > sundayStandardMins) {
+            otMinutes = workMins - sundayStandardMins;
           }
-        } else if (sundayWorkMins > 0) {
+        } else if (workMins > 0) {
           // Less than 7.5 hours but came
           dayValue = 0.5;
           isHalfDay = true;
           halfDayCount++;
         } else if (!hasOut) {
-          // IN but no OUT
+          // IN but no OUT - use config setting
           if (config.sundayMissingOutPunch === 'full') {
             dayValue = 1;
           } else if (config.sundayMissingOutPunch === 'half') {
@@ -153,14 +158,12 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
         // HOLIDAY WORKING (treat like Sunday)
         classification = DAY_CLASSIFICATIONS.HOLIDAY_WORKED;
         
-        const holidayWorkMins = workMins > 0 ? workMins : parseTimeToMinutes(otTime);
-        
-        if (holidayWorkMins >= sundayMinThreshold) {
+        if (workMins >= sundayMinThreshold) {
           dayValue = 1;
-          if (config.enableOvertime && holidayWorkMins > sundayStandardMins) {
-            otMinutes = holidayWorkMins - sundayStandardMins;
+          if (config.enableOvertime && workMins > sundayStandardMins) {
+            otMinutes = workMins - sundayStandardMins;
           }
-        } else if (holidayWorkMins > 0) {
+        } else if (workMins > 0) {
           dayValue = 0.5;
           isHalfDay = true;
           halfDayCount++;
@@ -197,8 +200,8 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
               otMinutes = overtimeMins;
             }
           }
-        } else {
-          // IN exists but no work hours (missing OUT)
+        } else if (!hasOut) {
+          // IN exists but no OUT - use config setting
           if (config.weekdayMissingOutPunch === 'full') {
             dayValue = 1;
           } else if (config.weekdayMissingOutPunch === 'half') {
@@ -221,7 +224,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
       totalShortMinutes += shortMinutes;
       
     } else {
-      // No IN time - absent or week off
+      // No IN time - absent or week off or holiday
       if (isSunday) {
         classification = DAY_CLASSIFICATIONS.WEEK_OFF;
         rawWODays++;
@@ -240,18 +243,24 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
       isAbsent: classification === DAY_CLASSIFICATIONS.ABSENT,
     });
     
+    // Convert work minutes to HH:MM format for display
+    const workHoursDisplay = workMins > 0 
+      ? `${Math.floor(workMins / 60).toString().padStart(2, '0')}:${(workMins % 60).toString().padStart(2, '0')}`
+      : '00:00';
+    
     dailyBreakdown.push({
       day: dayNum,
       dayName,
       inTime: inTime || '--:--',
       outTime: outTime || '--:--',
-      workHours: workHours || '00:00',
+      workHours: workHoursDisplay,
       workMins: workMins,
       classification,
       dayValue,
       isHalfDay,
       otMinutes,
       shortMinutes,
+      isHoliday: isHoliday,
     });
   });
   
@@ -316,14 +325,13 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
     : 0;
   
   // SALARY CALCULATION
-  // Total Payable Days = Present Days + Sunday Worked + OT Days
   const perDaySalary = masterEmp.salary / daysInMonth;
   const paidDays = presentDays + effectiveWO + effectiveHL;
   
-  // NEW FORMULA: Total Payable = Present + Sunday Worked + OT Days
+  // Total Payable = Present + Sunday Worked + Holiday Worked + OT Days - Short Days
   const totalPayableDays = presentDays + sundayWorkedDays + holidayWorkedDays + otDays - shortDays;
   
-  // Gross salary based on present + effective WO/HL
+  // Gross salary based on present + effective WO/HL + Sunday/Holiday worked
   const grossSalary = perDaySalary * (paidDays + sundayWorkedDays + holidayWorkedDays);
   
   // OT amount
@@ -332,8 +340,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth) => {
   // Short deduction
   const shortDeduction = perDaySalary * shortDays;
   
-  // TOTAL SALARY = Per Day × (Present + Sunday + OT Days) - Short Deduction
-  // Or: Gross + OT - Short
+  // TOTAL SALARY = Gross + OT - Short Deduction
   const totalSalary = grossSalary + otAmount - shortDeduction;
   
   return {
