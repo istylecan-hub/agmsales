@@ -119,6 +119,7 @@ export default function EmployeeMaster() {
       ...formData,
       code: normalizedCode,
       salary: parseFloat(formData.salary),
+      onlySundayNoOT: formData.onlySundayNoOT || false,
     });
 
     toast.success('Employee added successfully');
