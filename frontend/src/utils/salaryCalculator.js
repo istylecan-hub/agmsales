@@ -400,12 +400,12 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
   const totalSalary = perDaySalary * totalPayableDays;
   
   // For display purposes, calculate component breakdowns
-  const baseSalary = perDaySalary * presentDays;
+  const baseSalary = perDaySalary * presentDaysCalculated;
   const sundayAmount = perDaySalary * sundayWorkedDays;
   const holidayAmount = perDaySalary * holidayWorkedDays;
   const otAmount = perDaySalary * otDays;
   
-  // Short hours tracking (for reference, but deduction is already in net OT)
+  // Short hours tracking (for reference)
   const shortDays = shortHours / (config.shortHoursConversionBase || 9);
   
   return {
@@ -415,7 +415,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
     monthlySalary: masterEmp.salary,
     daysInMonth,
     perDaySalary: Math.round(perDaySalary * 100) / 100,
-    presentDays: Math.round(presentDays * 100) / 100,
+    presentDays: Math.round(presentDaysCalculated * 100) / 100, // Days in Month - Absent - Sandwich
     sundayWorked: Math.round(sundayWorkedDays * 100) / 100,
     holidayWorked: Math.round(holidayWorkedDays * 100) / 100,
     rawWO: rawWODays,
@@ -423,7 +423,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
     effectiveWO,
     effectiveHL,
     sandwichDays,
-    paidDays: Math.round(presentDays * 100) / 100, // For backward compatibility
+    paidDays: Math.round(presentDaysCalculated * 100) / 100, // Same as presentDays for clarity
     absentDays,
     otMinutes: totalOTMinutes,
     otHours: Math.round(otHours * 100) / 100,
