@@ -2,13 +2,15 @@
 
 import { STORAGE_KEYS, DEFAULT_CONFIG } from './constants';
 
+const API_URL = process.env.REACT_APP_BACKEND_URL;
+
 export const storage = {
   // Employees
   getEmployees: () => {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
       const employees = data ? JSON.parse(data) : [];
-      console.log('[Storage] Loaded employees:', employees.length);
+      console.log('[Storage] Loaded employees from localStorage:', employees.length);
       return employees;
     } catch (e) {
       console.error('[Storage] Error reading employees:', e);
@@ -19,15 +21,55 @@ export const storage = {
   setEmployees: (employees) => {
     try {
       localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
-      console.log('[Storage] Saved employees:', employees.length);
+      console.log('[Storage] Saved employees to localStorage:', employees.length);
+      
+      // Also sync to MongoDB (async, non-blocking)
+      storage.syncEmployeesToServer(employees);
+      
       return true;
     } catch (e) {
       console.error('[Storage] Error saving employees:', e);
-      // Check if quota exceeded
       if (e.name === 'QuotaExceededError') {
         console.error('[Storage] LocalStorage quota exceeded!');
       }
       return false;
+    }
+  },
+  
+  // Sync employees to MongoDB server
+  syncEmployeesToServer: async (employees) => {
+    try {
+      const response = await fetch(`${API_URL}/api/employees`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(employees),
+      });
+      const result = await response.json();
+      if (result.success) {
+        console.log('[Storage] Synced employees to server:', employees.length);
+      } else {
+        console.warn('[Storage] Server sync warning:', result.message);
+      }
+    } catch (e) {
+      console.warn('[Storage] Could not sync to server (offline?):', e.message);
+    }
+  },
+  
+  // Load employees from MongoDB server
+  loadEmployeesFromServer: async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/employees`);
+      const result = await response.json();
+      if (result.success && result.data && result.data.length > 0) {
+        console.log('[Storage] Loaded employees from server:', result.data.length);
+        // Save to localStorage as backup
+        localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(result.data));
+        return result.data;
+      }
+      return null;
+    } catch (e) {
+      console.warn('[Storage] Could not load from server:', e.message);
+      return null;
     }
   },
   
