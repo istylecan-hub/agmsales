@@ -496,7 +496,7 @@ export default function AttendanceUpload() {
                   <Calendar className="w-8 h-8 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-3xl font-bold font-[JetBrains_Mono]">{attendanceData?.daysInMonth}</p>
+                  <p className="text-3xl font-bold font-[JetBrains_Mono]">{correctDaysInMonth}</p>
                   <p className="text-sm text-muted-foreground">Days in Month</p>
                 </div>
               </CardContent>
@@ -524,6 +524,65 @@ export default function AttendanceUpload() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Month/Year Selection */}
+          <Card className="border-orange-500/30 bg-orange-500/5" data-testid="month-year-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Calendar className="w-5 h-5 text-orange-500" />
+                Select Month & Year
+                <span className="text-sm font-normal text-muted-foreground ml-2">
+                  (सही days in month के लिए month select करें)
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-4 items-end">
+                <div>
+                  <Label htmlFor="month-select">Month</Label>
+                  <select
+                    id="month-select"
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                    className="flex h-10 w-40 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    data-testid="month-select"
+                  >
+                    <option value={1}>January</option>
+                    <option value={2}>February</option>
+                    <option value={3}>March</option>
+                    <option value={4}>April</option>
+                    <option value={5}>May</option>
+                    <option value={6}>June</option>
+                    <option value={7}>July</option>
+                    <option value={8}>August</option>
+                    <option value={9}>September</option>
+                    <option value={10}>October</option>
+                    <option value={11}>November</option>
+                    <option value={12}>December</option>
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="year-select">Year</Label>
+                  <select
+                    id="year-select"
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                    className="flex h-10 w-28 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    data-testid="year-select"
+                  >
+                    {[2024, 2025, 2026, 2027].map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <Badge className="bg-orange-500/20 text-orange-700 border-orange-500/30 px-4 py-2 text-base">
+                    {correctDaysInMonth} Days in {['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][selectedMonth]} {selectedYear}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Holiday Management Card */}
           <Card className="border-cyan-500/30 bg-cyan-500/5" data-testid="holiday-management-card">
