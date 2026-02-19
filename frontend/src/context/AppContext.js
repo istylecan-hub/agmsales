@@ -1,27 +1,30 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { storage } from '../utils/storage';
 import { DEFAULT_CONFIG, TRANSLATIONS } from '../utils/constants';
 
 const AppContext = createContext(null);
 
 export const AppProvider = ({ children }) => {
+  // Flag to track if initial load from localStorage is complete
+  const isInitialLoadComplete = useRef(false);
+  
   // Language state
   const [language, setLanguage] = useState('en');
   
   // Theme state
   const [isDarkMode, setIsDarkMode] = useState(false);
   
-  // Employee data
-  const [employees, setEmployees] = useState([]);
+  // Employee data - initialize from localStorage immediately
+  const [employees, setEmployees] = useState(() => storage.getEmployees());
   
-  // Configuration
-  const [config, setConfig] = useState(DEFAULT_CONFIG);
+  // Configuration - initialize from localStorage immediately
+  const [config, setConfig] = useState(() => storage.getConfig());
   
-  // Attendance data
-  const [attendanceData, setAttendanceData] = useState(null);
+  // Attendance data - initialize from localStorage immediately
+  const [attendanceData, setAttendanceData] = useState(() => storage.getAttendanceData());
   
-  // Calculation results
-  const [calculationResults, setCalculationResults] = useState(null);
+  // Calculation results - initialize from localStorage immediately
+  const [calculationResults, setCalculationResults] = useState(() => storage.getLastCalculation());
   
   // Current step in wizard
   const [currentStep, setCurrentStep] = useState(1);
@@ -29,23 +32,15 @@ export const AppProvider = ({ children }) => {
   // Loading states
   const [isLoading, setIsLoading] = useState(false);
   
-  // Load data from localStorage on mount
+  // Mark initial load as complete and handle theme on mount
   useEffect(() => {
-    const savedEmployees = storage.getEmployees();
-    const savedConfig = storage.getConfig();
-    const savedAttendance = storage.getAttendanceData();
-    const savedCalculation = storage.getLastCalculation();
-    
-    // Always set employees from storage (even if empty array)
-    setEmployees(savedEmployees);
-    setConfig(savedConfig);
-    if (savedAttendance) setAttendanceData(savedAttendance);
-    if (savedCalculation) setCalculationResults(savedCalculation);
-    
     // Check for dark mode preference
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const savedTheme = localStorage.getItem('agm_theme');
     setIsDarkMode(savedTheme === 'dark' || (!savedTheme && prefersDark));
+    
+    // Mark initial load as complete
+    isInitialLoadComplete.current = true;
   }, []);
   
   // Apply dark mode class
@@ -58,15 +53,18 @@ export const AppProvider = ({ children }) => {
     localStorage.setItem('agm_theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
   
-  // Save employees to localStorage when changed
+  // Save employees to localStorage when changed (only after initial load)
   useEffect(() => {
-    // Always save employees array (even if empty)
-    storage.setEmployees(employees);
+    if (isInitialLoadComplete.current) {
+      storage.setEmployees(employees);
+    }
   }, [employees]);
   
-  // Save config to localStorage when changed
+  // Save config to localStorage when changed (only after initial load)
   useEffect(() => {
-    storage.setConfig(config);
+    if (isInitialLoadComplete.current) {
+      storage.setConfig(config);
+    }
   }, [config]);
   
   // Save attendance data when changed
