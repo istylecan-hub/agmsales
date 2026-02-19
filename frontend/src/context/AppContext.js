@@ -44,18 +44,25 @@ export const AppProvider = ({ children }) => {
       const localEmployees = storage.getEmployees();
       if (localEmployees.length === 0) {
         console.log('[AppContext] No local employees, checking server...');
-        const serverEmployees = await storage.loadEmployeesFromServer();
-        if (serverEmployees && serverEmployees.length > 0) {
-          console.log('[AppContext] Loaded employees from server:', serverEmployees.length);
-          setEmployees(serverEmployees);
+        try {
+          const serverEmployees = await storage.loadEmployeesFromServer();
+          if (serverEmployees && serverEmployees.length > 0) {
+            console.log('[AppContext] Loaded employees from server:', serverEmployees.length);
+            setEmployees(serverEmployees);
+            return; // Don't mark as complete yet, let the state update trigger save
+          }
+        } catch (e) {
+          console.warn('[AppContext] Server load failed:', e);
         }
       }
     };
     
     loadFromServer();
     
-    // Mark initial load as complete
-    isInitialLoadComplete.current = true;
+    // Mark initial load as complete after a small delay
+    setTimeout(() => {
+      isInitialLoadComplete.current = true;
+    }, 500);
   }, []);
   
   // Apply dark mode class
