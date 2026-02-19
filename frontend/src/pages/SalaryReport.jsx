@@ -512,7 +512,7 @@ export default function SalaryReport() {
           {selectedEmployee && (
             <div className="space-y-4">
               {/* Employee Summary */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 p-4 bg-secondary/30 rounded-lg">
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-3 p-4 bg-secondary/30 rounded-lg">
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground">Monthly Salary</p>
                   <p className="font-bold font-[JetBrains_Mono]">₹{selectedEmployee.monthlySalary.toLocaleString('en-IN')}</p>
@@ -522,17 +522,36 @@ export default function SalaryReport() {
                   <p className="font-bold font-[JetBrains_Mono] text-green-500">{selectedEmployee.presentDays}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-xs text-muted-foreground">OT Hours</p>
-                  <p className="font-bold font-[JetBrains_Mono] text-orange-500">{selectedEmployee.otHours}</p>
+                  <p className="text-xs text-muted-foreground">Sunday Working</p>
+                  <p className="font-bold font-[JetBrains_Mono] text-blue-500">{selectedEmployee.sundayWorked}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-xs text-muted-foreground">Short Hours</p>
-                  <p className="font-bold font-[JetBrains_Mono] text-red-500">{selectedEmployee.shortHours || 0}</p>
+                  <p className="text-xs text-muted-foreground">OT Days</p>
+                  <p className="font-bold font-[JetBrains_Mono] text-orange-500">{selectedEmployee.otDays}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground">Total Payable Days</p>
+                  <p className="font-bold font-[JetBrains_Mono] text-primary">{selectedEmployee.totalPayableDays}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground">Total Salary</p>
                   <p className="font-bold font-[JetBrains_Mono]">₹{selectedEmployee.totalSalary.toLocaleString('en-IN')}</p>
                 </div>
+              </div>
+
+              {/* Calculation Formula */}
+              <div className="p-3 bg-blue-500/10 rounded-lg text-sm">
+                <p className="font-semibold text-blue-600 mb-2">Calculation Formula:</p>
+                <div className="space-y-1 text-muted-foreground">
+                  <p>• Per Day = ₹{selectedEmployee.monthlySalary} ÷ {selectedEmployee.daysInMonth} = ₹{selectedEmployee.perDaySalary.toFixed(2)}</p>
+                  <p>• Net OT = {selectedEmployee.otHours} hrs - {selectedEmployee.shortHours} short hrs = {selectedEmployee.netOTHours || 0} hrs</p>
+                  <p>• OT Days = {selectedEmployee.netOTHours || 0} ÷ 9 = {selectedEmployee.otDays} days</p>
+                  <p>• Payable Days = {selectedEmployee.presentDays} + {selectedEmployee.sundayWorked} + {selectedEmployee.otDays} = {selectedEmployee.totalPayableDays}</p>
+                  <p className="font-semibold text-primary">• Total = ₹{selectedEmployee.perDaySalary.toFixed(2)} × {selectedEmployee.totalPayableDays} = ₹{selectedEmployee.totalSalary}</p>
+                </div>
+                {selectedEmployee.onlySundayNoOT && (
+                  <p className="mt-2 text-orange-500 font-semibold">⚠️ This employee has "Only Sunday, No OT" setting enabled</p>
+                )}
               </div>
 
               {/* Daily Breakdown Table */}
