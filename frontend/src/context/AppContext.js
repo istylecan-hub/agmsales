@@ -36,7 +36,8 @@ export const AppProvider = ({ children }) => {
     const savedAttendance = storage.getAttendanceData();
     const savedCalculation = storage.getLastCalculation();
     
-    if (savedEmployees.length > 0) setEmployees(savedEmployees);
+    // Always set employees from storage (even if empty array)
+    setEmployees(savedEmployees);
     setConfig(savedConfig);
     if (savedAttendance) setAttendanceData(savedAttendance);
     if (savedCalculation) setCalculationResults(savedCalculation);
