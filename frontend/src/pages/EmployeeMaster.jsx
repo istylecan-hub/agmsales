@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
+import { Switch } from '../components/ui/switch';
 import { toast } from 'sonner';
 import {
   Plus,
