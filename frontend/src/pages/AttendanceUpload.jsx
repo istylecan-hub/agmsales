@@ -65,6 +65,18 @@ export default function AttendanceUpload() {
   // Holiday management states
   const [manualHolidays, setManualHolidays] = useState([]);
   const [isHolidayModalOpen, setIsHolidayModalOpen] = useState(false);
+  
+  // Month/Year selection states
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // 1-12
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  
+  // Get days in selected month
+  const getDaysInMonth = (month, year) => {
+    return new Date(year, month, 0).getDate();
+  };
+  
+  // Calculate correct daysInMonth based on selected month/year
+  const correctDaysInMonth = getDaysInMonth(selectedMonth, selectedYear);
 
   // Get day names for the month
   const getDayName = (dayNum, daysInMonth) => {
