@@ -70,6 +70,7 @@ export default function EmployeeMaster() {
     salary: '',
     dateOfJoining: '',
     status: 'active',
+    onlySundayNoOT: false, // Only Sunday pay, no OT for this employee
   });
 
   // Get unique departments
