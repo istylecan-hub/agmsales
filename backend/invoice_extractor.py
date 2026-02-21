@@ -183,6 +183,187 @@ def detect_platform(text: str) -> str:
     return "Unknown"
 
 
+# SAC Code to Description mapping (common e-commerce services)
+SAC_DESCRIPTIONS = {
+    "998365": "Commission/Marketplace Fee",
+    "996799": "Logistics/Shipping Fee", 
+    "998599": "Payment Gateway/Collection Fee",
+    "996812": "Courier/Delivery Service",
+    "998361": "Business Support Service",
+    "998314": "Advertising Service",
+    "998313": "Marketing Service",
+    "997212": "Warehousing/Fulfillment",
+    "996511": "Transportation Fee",
+}
+
+
+def extract_meesho_invoice(text: str, filename: str) -> Dict[str, Any]:
+    """
+    Specialized extraction for Meesho invoices.
+    Meesho invoices have:
+    - SAC codes: 998365 (Commission), 996799 (Logistics), 998599 (Payment)
+    - IGST for inter-state, CGST+SGST for intra-state
+    - Table format with HSN/SAC, Description, Taxable Value, Tax Rate, Tax Amount, Total
+    """
+    data = {
+        "source_platform": "Meesho",
+        "document_type": "Invoice",
+        "invoice_number": None,
+        "invoice_date": None,
+        "service_provider_name": "Meesho Technologies Pvt Ltd",
+        "service_provider_gstin": None,
+        "service_receiver_name": None,
+        "service_receiver_gstin": None,
+        "place_of_supply_state_code": None,
+        "currency": "INR",
+        "subtotal_fee_amount": None,
+        "cgst_amount": None,
+        "sgst_amount": None,
+        "igst_amount": None,
+        "total_tax_amount": None,
+        "total_invoice_amount": None,
+        "line_items": [],
+        "_extraction_method": "meesho_regex"
+    }
+    
+    # Detect document type
+    if "credit note" in text.lower():
+        data['document_type'] = "CreditNote"
+    
+    # Extract Invoice Number - Meesho format: TI/01/26/1599650 or similar
+    inv_patterns = [
+        r'Invoice\s*(?:No\.?|Number|#)[:\s]*([A-Z0-9/\-]+)',
+        r'(TI/\d+/\d+/\d+)',  # Meesho specific format
+        r'Document\s*No[:\s]*([A-Z0-9/\-]+)',
+    ]
+    for pattern in inv_patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            data['invoice_number'] = match.group(1).strip()
+            break
+    
+    # Extract Date
+    date_patterns = [
+        r'(?:Invoice|Document)\s*Date[:\s]*(\d{1,2}[/\-]\d{1,2}[/\-]\d{4})',
+        r'Date[:\s]*(\d{1,2}[/\-]\d{1,2}[/\-]\d{4})',
+    ]
+    for pattern in date_patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            data['invoice_date'] = normalize_date(match.group(1))
+            break
+    
+    # Extract GSTINs
+    gstin_pattern = r'(\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1})'
+    gstin_matches = re.findall(gstin_pattern, text, re.IGNORECASE)
+    unique_gstins = list(dict.fromkeys([g.upper() for g in gstin_matches]))
+    
+    # Meesho's GSTIN usually starts with 29 (Karnataka)
+    for gstin in unique_gstins:
+        if gstin.startswith('29') and 'AARCM9332R' in gstin:
+            data['service_provider_gstin'] = gstin
+        elif not data['service_receiver_gstin']:
+            data['service_receiver_gstin'] = gstin
+    
+    if not data['service_provider_gstin'] and unique_gstins:
+        data['service_provider_gstin'] = unique_gstins[0]
+    if not data['service_receiver_gstin'] and len(unique_gstins) > 1:
+        data['service_receiver_gstin'] = unique_gstins[1]
+    
+    # Extract line items - Look for SAC code followed by amounts
+    # Pattern: SAC_CODE ... AMOUNT ... TAX_RATE ... TAX_AMOUNT ... TOTAL
+    lines = text.split('\n')
+    
+    for line in lines:
+        line_clean = line.strip()
+        
+        # Look for SAC codes in the line
+        for sac_code, description in SAC_DESCRIPTIONS.items():
+            if sac_code in line_clean:
+                # Extract all amounts from this line
+                amounts = extract_all_amounts(line_clean)
+                
+                if amounts:
+                    # Try to identify fee, tax, and total
+                    # Usually: Fee (largest or first), Tax Rate (small number like 18), Tax Amount, Total
+                    fee_amount = None
+                    tax_amount = None
+                    total_amount = None
+                    tax_rate = None
+                    
+                    # Filter amounts - remove tax rates (9, 18, etc.)
+                    real_amounts = [a for a in amounts if a > 50]  # Tax rates are usually small
+                    rate_amounts = [a for a in amounts if a <= 50]
+                    
+                    if real_amounts:
+                        if len(real_amounts) >= 3:
+                            fee_amount = real_amounts[-3]
+                            tax_amount = real_amounts[-2]
+                            total_amount = real_amounts[-1]
+                        elif len(real_amounts) == 2:
+                            fee_amount = real_amounts[0]
+                            total_amount = real_amounts[1]
+                            tax_amount = total_amount - fee_amount if total_amount > fee_amount else None
+                        elif len(real_amounts) == 1:
+                            fee_amount = real_amounts[0]
+                            total_amount = real_amounts[0]
+                    
+                    # Get tax rate
+                    if rate_amounts:
+                        tax_rate = max(rate_amounts)  # Usually 18% or 9%
+                    
+                    data['line_items'].append({
+                        "category_code_or_hsn": sac_code,
+                        "service_description": description,
+                        "fee_amount": fee_amount,
+                        "cgst_amount": tax_amount / 2 if tax_amount and tax_rate == 9 else None,
+                        "sgst_amount": tax_amount / 2 if tax_amount and tax_rate == 9 else None,
+                        "igst_amount": tax_amount if tax_amount and tax_rate == 18 else None,
+                        "total_tax_amount": tax_amount,
+                        "total_amount": total_amount,
+                        "tax_rate_percent": tax_rate
+                    })
+                    break  # Found this SAC, move to next line
+    
+    # If no line items found, try simpler extraction
+    if not data['line_items']:
+        for sac_code, description in SAC_DESCRIPTIONS.items():
+            if sac_code in text:
+                # Find amount near SAC code
+                pattern = rf'{sac_code}\s+.*?(\d+(?:,\d{{3}})*\.?\d*)'
+                match = re.search(pattern, text)
+                amount = normalize_amount(match.group(1)) if match else None
+                
+                data['line_items'].append({
+                    "category_code_or_hsn": sac_code,
+                    "service_description": description,
+                    "fee_amount": amount,
+                    "cgst_amount": None,
+                    "sgst_amount": None,
+                    "igst_amount": None,
+                    "total_tax_amount": None,
+                    "total_amount": amount,
+                    "tax_rate_percent": 18.0
+                })
+    
+    # Extract totals
+    totals = extract_totals_universal(text)
+    data['subtotal_fee_amount'] = totals['subtotal']
+    data['cgst_amount'] = totals['cgst']
+    data['sgst_amount'] = totals['sgst']
+    data['igst_amount'] = totals['igst']
+    data['total_tax_amount'] = totals['total_tax']
+    data['total_invoice_amount'] = totals['grand_total']
+    
+    # If we have line items but no totals, calculate from line items
+    if data['line_items'] and not data['total_invoice_amount']:
+        data['subtotal_fee_amount'] = sum(item.get('fee_amount') or 0 for item in data['line_items'])
+        data['total_tax_amount'] = sum(item.get('total_tax_amount') or 0 for item in data['line_items'])
+        data['total_invoice_amount'] = sum(item.get('total_amount') or 0 for item in data['line_items'])
+    
+    return data
+
+
 def extract_flipkart_invoice(text: str, filename: str) -> Dict[str, Any]:
     """
     Specialized extraction for Flipkart invoices/credit notes.
