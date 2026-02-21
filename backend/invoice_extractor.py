@@ -740,22 +740,22 @@ def extract_with_regex(text: str, filename: str) -> Dict[str, Any]:
     # Extract line items using universal extractor
     data['line_items'] = extract_line_items_universal(text)
     
-    # Extract HSN codes
-    hsn_pattern = r'\b(99\d{4})\b'
-    hsn_matches = re.findall(hsn_pattern, text)
-    
-    if hsn_matches:
+    # Only add HSN codes if no line items were found
+    if not data['line_items']:
+        hsn_pattern = r'\b(99\d{4})\b'
+        hsn_matches = re.findall(hsn_pattern, text)
+        
         for hsn in set(hsn_matches):
             data['line_items'].append({
                 "category_code_or_hsn": hsn,
-                "service_description": None,
+                "service_description": "Service Fee",
                 "fee_amount": None,
                 "cgst_amount": None,
                 "sgst_amount": None,
                 "igst_amount": None,
                 "total_tax_amount": None,
-                "total_amount": None,
-                "tax_rate_percent": None
+                "total_amount": data['total_invoice_amount'],  # Use grand total if available
+                "tax_rate_percent": 18.0
             })
     
     return data
