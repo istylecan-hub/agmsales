@@ -256,33 +256,36 @@ def extract_flipkart_invoice(text: str, filename: str) -> Dict[str, Any]:
     
     # Extract Service Provider GSTIN (Flipkart's GSTIN in BILLED FROM section)
     # Flipkart's GSTIN is in Karnataka: 29AACCF0683K1ZD
-    # The structure is: BILLED FROM: ... GSTIN: xxx ... BILLED TO: ... GSTIN: yyy
+    # NOTE: PDF extraction may have BILLED TO before BILLED FROM due to text flow
     
-    # Try to extract GSTINs with section context
     gstin_pattern = r'(\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1})'
     
-    # Look for GSTIN after "BILLED FROM" and before "BILLED TO"
-    billed_from_section = re.search(r'BILLED\s*FROM:(.+?)BILLED\s*TO:', text, re.IGNORECASE | re.DOTALL)
+    # Look for GSTIN after "BILLED FROM" 
+    billed_from_section = re.search(r'BILLED\s*FROM:(.+?)(?:Original|E\.and|$)', text, re.IGNORECASE | re.DOTALL)
     if billed_from_section:
         provider_gstin_match = re.search(gstin_pattern, billed_from_section.group(1), re.IGNORECASE)
         if provider_gstin_match:
             data['service_provider_gstin'] = provider_gstin_match.group(1).upper()
     
-    # Look for GSTIN after "BILLED TO"
-    billed_to_section = re.search(r'BILLED\s*TO:(.+?)(?:IRN:|Service|$)', text, re.IGNORECASE | re.DOTALL)
+    # Look for GSTIN after "BILLED TO" and before "IRN"
+    billed_to_section = re.search(r'BILLED\s*TO:(.+?)(?:IRN:|CREDIT|BILLED\s*FROM|$)', text, re.IGNORECASE | re.DOTALL)
     if billed_to_section:
         receiver_gstin_match = re.search(gstin_pattern, billed_to_section.group(1), re.IGNORECASE)
         if receiver_gstin_match:
             data['service_receiver_gstin'] = receiver_gstin_match.group(1).upper()
     
-    # Fallback: If above didn't work, use all GSTIN matches
+    # Fallback: Look for all GSTINs and identify by state code
+    # Flipkart's GSTIN starts with 29 (Karnataka)
+    # Customer's GSTIN could be any state
     if not data['service_provider_gstin'] or not data['service_receiver_gstin']:
-        gstin_matches = re.findall(r'GSTIN:\s*' + gstin_pattern, text, re.IGNORECASE)
-        if gstin_matches:
-            if not data['service_provider_gstin']:
-                data['service_provider_gstin'] = gstin_matches[0].upper()
-            if not data['service_receiver_gstin'] and len(gstin_matches) >= 2:
-                data['service_receiver_gstin'] = gstin_matches[1].upper()
+        all_gstins = re.findall(r'GSTIN:\s*' + gstin_pattern, text, re.IGNORECASE)
+        for gstin in all_gstins:
+            gstin = gstin.upper()
+            if gstin.startswith('29') and 'AACCF0683K' in gstin:
+                # This is Flipkart's GSTIN
+                data['service_provider_gstin'] = gstin
+            elif not data['service_receiver_gstin']:
+                data['service_receiver_gstin'] = gstin
     
     # Extract Service Receiver Name (Business Name from BILLED TO section)
     receiver_patterns = [
