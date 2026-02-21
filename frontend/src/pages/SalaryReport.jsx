@@ -114,30 +114,32 @@ export default function SalaryReport() {
     setIsSaving(true);
     try {
       const payload = {
-        month: selectedMonth,
-        year: selectedYear,
-        daysInMonth: daysInMonth || 30,
+        month: parseInt(selectedMonth),
+        year: parseInt(selectedYear),
+        daysInMonth: parseInt(daysInMonth) || 30,
         employees: calculationResults.results.map(r => ({
-          code: r.code,
-          name: r.name,
-          department: r.department || '',
-          baseSalary: r.monthlySalary,
-          presentDays: r.presentDays,
-          absentDays: r.absentDays,
-          sandwichDays: r.sandwichDays || 0,
-          sundayWorking: r.sundayWorked || 0,
-          otHours: r.otHours || 0,
-          shortHours: r.shortHours || 0,
-          netOTHours: r.netOTHours || 0,
-          totalPayableDays: r.totalPayableDays,
-          totalSalary: r.totalSalary,
-          perDaySalary: r.perDaySalary || 0,
-          otAmount: r.otAmount || 0,
-          deductions: r.deductions || 0
+          code: String(r.code || ''),
+          name: String(r.name || ''),
+          department: String(r.department || ''),
+          baseSalary: parseFloat(r.monthlySalary) || 0,
+          presentDays: parseFloat(r.presentDays) || 0,
+          absentDays: parseFloat(r.absentDays) || 0,
+          sandwichDays: parseFloat(r.sandwichDays) || 0,
+          sundayWorking: parseFloat(r.sundayWorked) || 0,
+          otHours: parseFloat(r.otHours) || 0,
+          shortHours: parseFloat(r.shortHours) || 0,
+          netOTHours: parseFloat(r.netOTHours) || 0,
+          totalPayableDays: parseFloat(r.totalPayableDays) || 0,
+          totalSalary: parseFloat(r.totalSalary) || 0,
+          perDaySalary: parseFloat(r.perDaySalary) || 0,
+          otAmount: parseFloat(r.otAmount) || 0,
+          deductions: parseFloat(r.deductions) || 0
         })),
-        totalPayout: calculationResults.summary.totalSalary,
-        config: salaryConfig
+        totalPayout: parseFloat(calculationResults.summary?.totalSalary) || 0,
+        config: salaryConfig || {}
       };
+      
+      console.log('Saving salary payload:', payload);
       
       const res = await fetch(`${API_URL}/api/salary/save`, {
         method: 'POST',
@@ -145,16 +147,26 @@ export default function SalaryReport() {
         body: JSON.stringify(payload)
       });
       
-      const data = await res.json();
-      if (data.success) {
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        console.error('Invalid JSON response:', text);
+        toast.error('Server error: Invalid response');
+        return;
+      }
+      
+      if (res.ok && data.success) {
         toast.success(`Salary saved for ${selectedMonth}/${selectedYear}`);
         loadSalaryHistory();
       } else {
-        toast.error(data.message || 'Failed to save salary');
+        console.error('Save failed:', data);
+        toast.error(data.message || data.detail || 'Failed to save salary');
       }
     } catch (err) {
-      toast.error('Error saving salary');
-      console.error(err);
+      console.error('Save salary error:', err);
+      toast.error('Error saving salary: ' + err.message);
     } finally {
       setIsSaving(false);
     }
