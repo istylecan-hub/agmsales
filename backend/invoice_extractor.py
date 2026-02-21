@@ -817,9 +817,11 @@ def extract_with_regex(text: str, filename: str) -> Dict[str, Any]:
     # Detect platform first
     platform = detect_platform(text)
     
-    # Use specialized Flipkart extractor for Flipkart invoices
+    # Use specialized extractors for known platforms
     if platform == "Flipkart":
         return extract_flipkart_invoice(text, filename)
+    elif platform == "Meesho":
+        return extract_meesho_invoice(text, filename)
     
     data = {
         "source_platform": platform,
