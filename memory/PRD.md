@@ -124,14 +124,27 @@ Total Salary = (Monthly Salary / Days in Month) × Total Payable Days
 - **Invoice Extractor module integrated**
 - Deployed to production
 
+### Session 4: Employee Persistence & Invoice Fix (Feb 21, 2026)
+- ✅ **Employee Data Persistence** - MongoDB backend for permanent storage
+- ✅ **Flipkart Invoice Extraction Fix** - Specialized extraction for 3 document types:
+  - Commission/Tax Invoice (FKRKA prefix) with GSTIN & IGST
+  - Credit Note (FKCKA prefix) with GSTIN & IGST  
+  - Commercial Credit Note (ICNDL prefix) without tax
+- ✅ Regex patterns for Flipkart: Invoice #, Date, GSTINs, SAC codes, Line items, Totals
+- ✅ Testing: 15/15 tests passed for Flipkart extraction
+
 ---
 
 ## Backlog
 
+### P0 (Critical - Pending Deployment)
+- [ ] Re-deploy app to make Employee persistence + Flipkart fix live
+
 ### P1 (Should Have)
-- [ ] Test Invoice Extractor with real invoices
+- [x] Test Invoice Extractor with Flipkart invoices ✅
 - [ ] Test Salary Calculator with real attendance data
 - [ ] Print-friendly report view
+- [ ] "Regex Only" Mode toggle for Invoice Extractor (save LLM credits)
 
 ### P2 (Nice to Have)
 - [ ] Dashboard charts/graphs
