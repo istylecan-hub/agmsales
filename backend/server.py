@@ -183,29 +183,35 @@ class EmployeeSalaryRecord(BaseModel):
     """Individual employee salary record for a month"""
     code: str
     name: str
-    department: Optional[str] = None
-    baseSalary: float
-    presentDays: float
-    absentDays: float
+    department: Optional[str] = ""
+    baseSalary: float = 0
+    presentDays: float = 0
+    absentDays: float = 0
     sandwichDays: float = 0
     sundayWorking: float = 0
     otHours: float = 0
     shortHours: float = 0
     netOTHours: float = 0
-    totalPayableDays: float
-    totalSalary: float
+    totalPayableDays: float = 0
+    totalSalary: float = 0
     perDaySalary: float = 0
     otAmount: float = 0
     deductions: float = 0
+    
+    class Config:
+        extra = "ignore"  # Ignore extra fields
 
 class SalaryRecordCreate(BaseModel):
     """Payload to save monthly salary data"""
     month: int  # 1-12
     year: int
-    daysInMonth: int
+    daysInMonth: int = 30
     employees: List[EmployeeSalaryRecord]
-    totalPayout: float
+    totalPayout: float = 0
     config: Optional[dict] = None  # Store salary config used
+    
+    class Config:
+        extra = "ignore"  # Ignore extra fields
 
 class SalaryRecordUpdate(BaseModel):
     """Payload to update a specific employee's salary"""
