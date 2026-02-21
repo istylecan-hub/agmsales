@@ -222,17 +222,25 @@ def extract_flipkart_invoice(text: str, filename: str) -> Dict[str, Any]:
         data['document_type'] = "Invoice"
     
     # Extract Invoice/Credit Note Number
-    # Patterns: "Invoice #: FKRKA26000290632" or "Credit Note #: FKCKA26000190312" or "Credit Note #: ICNDL26000031306"
-    inv_patterns = [
-        r'Invoice\s*#:\s*([A-Z0-9]+)',
-        r'Credit\s*Note\s*#:\s*([A-Z0-9]+)',
-        r'Invoice\s*No\.?\s*:?\s*([A-Z0-9]+)',
-    ]
-    for pattern in inv_patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            data['invoice_number'] = match.group(1).strip()
-            break
+    # For Credit Notes, prioritize "Credit Note #" over "Original Invoice #"
+    if "credit note" in text.lower():
+        # For credit notes, look for Credit Note # first
+        credit_note_match = re.search(r'Credit\s*Note\s*#:\s*([A-Z0-9]+)', text, re.IGNORECASE)
+        if credit_note_match:
+            data['invoice_number'] = credit_note_match.group(1).strip()
+    
+    # If not found yet, try other patterns
+    if not data['invoice_number']:
+        inv_patterns = [
+            r'Invoice\s*#:\s*([A-Z0-9]+)',
+            r'Credit\s*Note\s*#:\s*([A-Z0-9]+)',
+            r'Invoice\s*No\.?\s*:?\s*([A-Z0-9]+)',
+        ]
+        for pattern in inv_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                data['invoice_number'] = match.group(1).strip()
+                break
     
     # Extract Date - formats: "31-05-2025" or "31/05/2025"
     date_patterns = [
