@@ -481,6 +481,10 @@ async def get_employee_growth(emp_code: str):
                 "monthsTracked": len(growth_data)
             }
         }
+    except Exception as e:
+        logging.error(f"Error loading employee growth: {e}")
+        return {"success": False, "message": str(e)}
+
 
 @api_router.post("/status", response_model=StatusCheck)
 async def create_status_check(input: StatusCheckCreate):
