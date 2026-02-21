@@ -280,69 +280,54 @@ def extract_meesho_invoice(text: str, filename: str) -> Dict[str, Any]:
         # Look for SAC codes in the line
         for sac_code, description in SAC_DESCRIPTIONS.items():
             if sac_code in line_clean:
-                # Extract all amounts from this line
-                amounts = extract_all_amounts(line_clean)
+                # Extract all amounts from this line in order of appearance
+                amount_pattern = r'(\d+(?:,\d{3})*\.?\d*)'
+                found_amounts = re.findall(amount_pattern, line_clean)
+                amounts_in_order = [normalize_amount(a) for a in found_amounts if normalize_amount(a) and normalize_amount(a) > 50]
                 
-                if amounts:
-                    # Try to identify fee, tax, and total
-                    # Usually in order: Taxable Value (fee), Tax Amount, Total
-                    fee_amount = None
-                    tax_amount = None
-                    total_amount = None
-                    tax_rate = None
-                    
-                    # Filter amounts - remove tax rates (9, 18, etc.)
-                    real_amounts = [a for a in amounts if a > 50]  # Tax rates are usually small
-                    rate_amounts = [a for a in amounts if a <= 50]
-                    
-                    # Sort real amounts ascending (fee < tax < total usually, but total is largest)
-                    real_amounts_sorted = sorted(real_amounts)
-                    
-                    if real_amounts_sorted:
-                        if len(real_amounts_sorted) >= 3:
-                            # Smallest is often fee, middle is tax, largest is total
-                            # But if total = fee + tax, then order is: fee, tax, total
-                            # Check if largest = sum of two smaller ones
-                            if len(real_amounts_sorted) >= 3:
-                                possible_fee = real_amounts_sorted[0]
-                                possible_tax = real_amounts_sorted[1]
-                                possible_total = real_amounts_sorted[2]
-                                
-                                # Check if total ≈ fee + tax (within 1%)
-                                if abs(possible_total - (possible_fee + possible_tax)) < possible_total * 0.01:
-                                    fee_amount = possible_fee
-                                    tax_amount = possible_tax
-                                    total_amount = possible_total
-                                else:
-                                    # Just assign in order
-                                    fee_amount = real_amounts_sorted[0]
-                                    tax_amount = real_amounts_sorted[-2] if len(real_amounts_sorted) > 2 else None
-                                    total_amount = real_amounts_sorted[-1]
-                        elif len(real_amounts_sorted) == 2:
-                            # Smaller is fee, larger is total (tax = total - fee)
-                            fee_amount = min(real_amounts_sorted)
-                            total_amount = max(real_amounts_sorted)
-                            tax_amount = total_amount - fee_amount if total_amount > fee_amount else None
-                        elif len(real_amounts_sorted) == 1:
-                            fee_amount = real_amounts_sorted[0]
-                            total_amount = real_amounts_sorted[0]
-                    
-                    # Get tax rate
-                    if rate_amounts:
-                        tax_rate = max(rate_amounts)  # Usually 18% or 9%
-                    
-                    data['line_items'].append({
-                        "category_code_or_hsn": sac_code,
-                        "service_description": description,
-                        "fee_amount": fee_amount,
-                        "cgst_amount": tax_amount / 2 if tax_amount and tax_rate == 9 else None,
-                        "sgst_amount": tax_amount / 2 if tax_amount and tax_rate == 9 else None,
-                        "igst_amount": tax_amount if tax_amount and tax_rate == 18 else None,
-                        "total_tax_amount": tax_amount,
-                        "total_amount": total_amount,
-                        "tax_rate_percent": tax_rate
-                    })
-                    break  # Found this SAC, move to next line
+                fee_amount = None
+                tax_amount = None
+                total_amount = None
+                tax_rate = None
+                
+                # Get tax rate (usually 9 or 18)
+                rate_match = re.search(r'@?\s*(\d+)\s*%', line_clean)
+                if rate_match:
+                    tax_rate = float(rate_match.group(1))
+                
+                # Amounts usually appear in order: Taxable Value, Tax Amount, Total
+                if amounts_in_order:
+                    if len(amounts_in_order) >= 3:
+                        fee_amount = amounts_in_order[0]  # First = Taxable/Fee
+                        tax_amount = amounts_in_order[1]  # Second = Tax
+                        total_amount = amounts_in_order[2]  # Third = Total
+                    elif len(amounts_in_order) == 2:
+                        # Smaller is usually fee, check if larger = smaller * 1.18 (with tax)
+                        smaller = min(amounts_in_order)
+                        larger = max(amounts_in_order)
+                        if abs(larger - smaller * 1.18) < larger * 0.05:  # ~18% tax
+                            fee_amount = smaller
+                            total_amount = larger
+                            tax_amount = larger - smaller
+                        else:
+                            fee_amount = amounts_in_order[0]
+                            total_amount = amounts_in_order[1]
+                    elif len(amounts_in_order) == 1:
+                        fee_amount = amounts_in_order[0]
+                        total_amount = amounts_in_order[0]
+                
+                data['line_items'].append({
+                    "category_code_or_hsn": sac_code,
+                    "service_description": description,
+                    "fee_amount": fee_amount,
+                    "cgst_amount": tax_amount / 2 if tax_amount and tax_rate == 9 else None,
+                    "sgst_amount": tax_amount / 2 if tax_amount and tax_rate == 9 else None,
+                    "igst_amount": tax_amount if tax_amount and (tax_rate == 18 or not tax_rate) else None,
+                    "total_tax_amount": tax_amount,
+                    "total_amount": total_amount,
+                    "tax_rate_percent": tax_rate or 18.0
+                })
+                break  # Found this SAC, move to next line
     
     # If no line items found, try simpler extraction
     if not data['line_items']:
