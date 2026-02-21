@@ -741,6 +741,9 @@ export default function SalaryReport() {
                 </Button>
               </div>
             </DialogTitle>
+            <DialogDescription>
+              Detailed salary breakdown and attendance summary
+            </DialogDescription>
           </DialogHeader>
           
           {selectedEmployee && (
