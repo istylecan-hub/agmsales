@@ -178,7 +178,246 @@ def detect_platform(text: str) -> str:
         return "Meesho"
     elif "fashnear" in text_lower:
         return "Fashnear"
+    elif "flipkart" in text_lower:
+        return "Flipkart"
     return "Unknown"
+
+
+def extract_flipkart_invoice(text: str, filename: str) -> Dict[str, Any]:
+    """
+    Specialized extraction for Flipkart invoices/credit notes.
+    Handles three types:
+    1. Commission/Tax Invoice (FKRKA prefix) - with GSTIN, IGST
+    2. Credit Note (FKCKA prefix) - with GSTIN, IGST
+    3. Commercial Credit Note (ICNDL prefix) - NO GSTIN, NO Tax
+    """
+    data = {
+        "source_platform": "Flipkart",
+        "document_type": "Invoice",
+        "invoice_number": None,
+        "invoice_date": None,
+        "service_provider_name": "Flipkart Internet Private Limited",
+        "service_provider_gstin": None,
+        "service_receiver_name": None,
+        "service_receiver_gstin": None,
+        "place_of_supply_state_code": None,
+        "currency": "INR",
+        "subtotal_fee_amount": None,
+        "cgst_amount": None,
+        "sgst_amount": None,
+        "igst_amount": None,
+        "total_tax_amount": None,
+        "total_invoice_amount": None,
+        "line_items": [],
+        "_extraction_method": "flipkart_regex"
+    }
+    
+    # Detect document type
+    if "credit note" in text.lower():
+        if "commercial credit note" in text.lower():
+            data['document_type'] = "CommercialCreditNote"
+        else:
+            data['document_type'] = "CreditNote"
+    elif "commission" in text.lower() or "tax invoice" in text.lower():
+        data['document_type'] = "Invoice"
+    
+    # Extract Invoice/Credit Note Number
+    # Patterns: "Invoice #: FKRKA26000290632" or "Credit Note #: FKCKA26000190312" or "Credit Note #: ICNDL26000031306"
+    inv_patterns = [
+        r'Invoice\s*#:\s*([A-Z0-9]+)',
+        r'Credit\s*Note\s*#:\s*([A-Z0-9]+)',
+        r'Invoice\s*No\.?\s*:?\s*([A-Z0-9]+)',
+    ]
+    for pattern in inv_patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            data['invoice_number'] = match.group(1).strip()
+            break
+    
+    # Extract Date - formats: "31-05-2025" or "31/05/2025"
+    date_patterns = [
+        r'(?:Invoice|Credit\s*Note)\s*Date:\s*(\d{2}[-/]\d{2}[-/]\d{4})',
+        r'Date:\s*(\d{2}[-/]\d{2}[-/]\d{4})',
+    ]
+    for pattern in date_patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            date_str = match.group(1).replace('-', '/')
+            data['invoice_date'] = normalize_date(date_str)
+            break
+    
+    # Extract Service Provider GSTIN (Flipkart's GSTIN in BILLED FROM section)
+    # Pattern: "GSTIN: 29AACCF0683K1ZD"
+    gstin_pattern = r'GSTIN:\s*(\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1})'
+    gstin_matches = re.findall(gstin_pattern, text, re.IGNORECASE)
+    
+    if gstin_matches:
+        # First GSTIN is usually the service provider (Flipkart)
+        data['service_provider_gstin'] = gstin_matches[0].upper()
+        # Second GSTIN (if exists) is the service receiver
+        if len(gstin_matches) >= 2:
+            data['service_receiver_gstin'] = gstin_matches[1].upper()
+    
+    # Extract Service Receiver Name (Business Name from BILLED TO section)
+    receiver_patterns = [
+        r'Business\s*Name:\s*([^\n]+)',
+        r'BILLED\s*TO:.*?(?:Business\s*Name:|Display\s*Name:)\s*([^\n]+)',
+    ]
+    for pattern in receiver_patterns:
+        match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+        if match:
+            data['service_receiver_name'] = match.group(1).strip()
+            break
+    
+    # Extract Place of Supply/State Code
+    pos_match = re.search(r'Place\s*of\s*Supply/State\s*Code:\s*([^\n,]+)', text, re.IGNORECASE)
+    if pos_match:
+        pos_text = pos_match.group(1).strip()
+        # Extract state code like "IN-DL" -> "DL" or just "Delhi" -> extract code
+        state_code_match = re.search(r'IN-([A-Z]{2})', pos_text)
+        if state_code_match:
+            data['place_of_supply_state_code'] = state_code_match.group(1)
+        else:
+            # Map common state names to codes
+            state_map = {
+                'delhi': '07', 'maharashtra': '27', 'karnataka': '29',
+                'tamil nadu': '33', 'uttar pradesh': '09', 'gujarat': '24',
+                'rajasthan': '08', 'west bengal': '19', 'telangana': '36'
+            }
+            for state, code in state_map.items():
+                if state in pos_text.lower():
+                    data['place_of_supply_state_code'] = code
+                    break
+    
+    # Extract line items - Flipkart format has SAC codes, Description, Net Taxable Value, IGST Rate, IGST Amount, Total
+    # For Commercial Credit Notes, format is simpler: Sr. No, Description, Net Amount
+    
+    if data['document_type'] == "CommercialCreditNote":
+        # Simple format: Sr. No. Description Net Amount
+        # Pattern: number followed by description and amount
+        line_pattern = r'(\d+)\s+([A-Za-z\s]+(?:Fee|Discount|Recovery|Amount)?)\s+(\d+(?:,\d{3})*\.?\d*)\s*$'
+        lines = text.split('\n')
+        for line in lines:
+            match = re.search(line_pattern, line.strip())
+            if match:
+                desc = match.group(2).strip()
+                amount = normalize_amount(match.group(3))
+                if amount and amount > 0:
+                    data['line_items'].append({
+                        "category_code_or_hsn": None,
+                        "service_description": desc,
+                        "fee_amount": amount,
+                        "cgst_amount": None,
+                        "sgst_amount": None,
+                        "igst_amount": None,
+                        "total_tax_amount": None,
+                        "total_amount": amount,
+                        "tax_rate_percent": None
+                    })
+        
+        # Extract total for Commercial Credit Notes
+        total_match = re.search(r'Total\s+(\d+(?:,\d{3})*\.?\d*)', text, re.IGNORECASE)
+        if total_match:
+            data['total_invoice_amount'] = normalize_amount(total_match.group(1))
+            data['subtotal_fee_amount'] = data['total_invoice_amount']
+    else:
+        # Tax Invoice/Credit Note format with IGST
+        # SAC codes are 6 digits like 998599, 996812, 998365
+        # Pattern: SAC_CODE Description VALUE RATE TAX TOTAL
+        
+        # First, let's extract the line items table
+        # Look for patterns like "998599 Collection Fee 5160.91 18.0 929.00 6089.91"
+        line_patterns = [
+            # SAC code at start, then description, then values
+            r'(\d{6})\s+([A-Za-z\s]+(?:Fee|Recovery|Amount)?)\s+(\d+(?:,\d{3})*\.?\d*)\s+(\d+\.?\d*)\s+(\d+(?:,\d{3})*\.?\d*)\s+(\d+(?:,\d{3})*\.?\d*)',
+            # Multi-line description handling (e.g., "Customer Add-ons\nAmount Recovery")
+            r'(\d{6})\s+([A-Za-z][A-Za-z\s\-]+)\s*[\n\s]*([A-Za-z][A-Za-z\s]*)?[\n\s]*(\d+(?:,\d{3})*\.?\d*)\s+(\d+\.?\d*)\s+(\d+(?:,\d{3})*\.?\d*)\s+(\d+(?:,\d{3})*\.?\d*)',
+        ]
+        
+        # Try to extract line items
+        for pattern in line_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE | re.MULTILINE)
+            if matches:
+                for match in matches:
+                    if len(match) == 6:
+                        sac, desc, value, rate, tax, total = match
+                        desc_clean = desc.strip()
+                    elif len(match) == 7:
+                        sac, desc1, desc2, value, rate, tax, total = match
+                        desc_clean = f"{desc1.strip()} {desc2.strip() if desc2 else ''}".strip()
+                    else:
+                        continue
+                    
+                    fee = normalize_amount(value)
+                    igst = normalize_amount(tax)
+                    total_amt = normalize_amount(total)
+                    tax_rate = normalize_amount(rate)
+                    
+                    if fee and fee > 0:
+                        data['line_items'].append({
+                            "category_code_or_hsn": sac.strip(),
+                            "service_description": desc_clean,
+                            "fee_amount": fee,
+                            "cgst_amount": None,
+                            "sgst_amount": None,
+                            "igst_amount": igst,
+                            "total_tax_amount": igst,
+                            "total_amount": total_amt,
+                            "tax_rate_percent": tax_rate
+                        })
+                break
+        
+        # If no line items found with complex pattern, try simpler extraction
+        if not data['line_items']:
+            # Extract SAC codes
+            sac_codes = re.findall(r'\b(99\d{4})\b', text)
+            unique_sacs = list(set(sac_codes))
+            
+            # Common Flipkart service descriptions
+            service_descriptions = [
+                'Collection Fee', 'Shipping Fee', 'Fixed Fee', 
+                'Ad Services Fee', 'Customer Add-ons Amount Recovery',
+                'Customer Add-ons Recovery', 'Amount Recovery'
+            ]
+            
+            for sac in unique_sacs:
+                data['line_items'].append({
+                    "category_code_or_hsn": sac,
+                    "service_description": None,
+                    "fee_amount": None,
+                    "cgst_amount": None,
+                    "sgst_amount": None,
+                    "igst_amount": None,
+                    "total_tax_amount": None,
+                    "total_amount": None,
+                    "tax_rate_percent": 18.0  # Standard GST rate for services
+                })
+        
+        # Extract totals from the Total row
+        # Pattern: "Total 224684.89 40443.27 265128.16" or "Total 3073.63 553.25 3626.88"
+        total_pattern = r'Total\s+(\d+(?:,\d{3})*\.?\d*)\s+(\d+(?:,\d{3})*\.?\d*)\s+(\d+(?:,\d{3})*\.?\d*)'
+        total_match = re.search(total_pattern, text, re.IGNORECASE)
+        if total_match:
+            data['subtotal_fee_amount'] = normalize_amount(total_match.group(1))
+            data['igst_amount'] = normalize_amount(total_match.group(2))
+            data['total_tax_amount'] = normalize_amount(total_match.group(2))
+            data['total_invoice_amount'] = normalize_amount(total_match.group(3))
+        else:
+            # Try alternate patterns
+            subtotal_match = re.search(r'(?:Sub\s*Total|Taxable\s*Value|Net\s*Taxable)[:\s]*(?:Rs\.?|₹)?\s*(\d+(?:,\d{3})*\.?\d*)', text, re.IGNORECASE)
+            if subtotal_match:
+                data['subtotal_fee_amount'] = normalize_amount(subtotal_match.group(1))
+            
+            igst_match = re.search(r'IGST[:\s@\d%]*(?:Rs\.?|₹)?\s*(\d+(?:,\d{3})*\.?\d*)', text, re.IGNORECASE)
+            if igst_match:
+                data['igst_amount'] = normalize_amount(igst_match.group(1))
+                data['total_tax_amount'] = data['igst_amount']
+            
+            grand_total_match = re.search(r'(?:Grand\s*)?Total[:\s]*(?:Rs\.?|₹)?\s*(\d+(?:,\d{3})*\.?\d*)', text, re.IGNORECASE)
+            if grand_total_match:
+                data['total_invoice_amount'] = normalize_amount(grand_total_match.group(1))
+    
+    return data
 
 # ============== REGEX-BASED FALLBACK EXTRACTOR ==============
 
