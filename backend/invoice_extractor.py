@@ -423,8 +423,16 @@ def extract_flipkart_invoice(text: str, filename: str) -> Dict[str, Any]:
 
 def extract_with_regex(text: str, filename: str) -> Dict[str, Any]:
     """Fallback extraction using regex patterns when LLM is unavailable."""
+    
+    # Detect platform first
+    platform = detect_platform(text)
+    
+    # Use specialized Flipkart extractor for Flipkart invoices
+    if platform == "Flipkart":
+        return extract_flipkart_invoice(text, filename)
+    
     data = {
-        "source_platform": detect_platform(text),
+        "source_platform": platform,
         "document_type": "CreditNote" if "credit note" in text.lower() else "Invoice",
         "invoice_number": None,
         "invoice_date": None,
@@ -477,11 +485,11 @@ def extract_with_regex(text: str, filename: str) -> Dict[str, Any]:
         data['service_receiver_gstin'] = gstin_matches[1].upper()
     
     # Extract company names based on platform
-    if data['source_platform'] == 'Amazon':
+    if platform == 'Amazon':
         data['service_provider_name'] = 'Amazon Seller Services Private Limited'
-    elif data['source_platform'] == 'Meesho':
+    elif platform == 'Meesho':
         data['service_provider_name'] = 'Meesho Technologies Pvt Ltd'
-    elif data['source_platform'] == 'Fashnear':
+    elif platform == 'Fashnear':
         data['service_provider_name'] = 'Fashnear Technologies Pvt Ltd'
     
     # Extract amounts
