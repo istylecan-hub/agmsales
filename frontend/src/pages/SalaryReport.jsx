@@ -924,6 +924,9 @@ export default function SalaryReport() {
                 </Button>
               </div>
             </DialogTitle>
+            <DialogDescription>
+              View, compare and track salary history
+            </DialogDescription>
           </DialogHeader>
           
           <ScrollArea className="max-h-[60vh]">
