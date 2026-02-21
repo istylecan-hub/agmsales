@@ -162,4 +162,6 @@ Total Salary = (Monthly Salary / Days in Month) × Total Payable Days
 - `/app/frontend/src/pages/SalaryConfiguration.jsx` - Config UI
 
 ## Test Reports
-- `/app/test_reports/iteration_3.json` (Latest)
+- `/app/test_reports/iteration_4.json` (Latest - Flipkart extraction)
+- `/app/test_reports/iteration_3.json`
+- `/app/backend/tests/test_flipkart_invoice_extraction.py` (Pytest file)
