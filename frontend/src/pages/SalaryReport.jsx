@@ -358,9 +358,34 @@ export default function SalaryReport() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-4xl font-bold tracking-tight font-[Manrope]">{t('reports')}</h1>
-          <p className="text-muted-foreground mt-1">Salary calculation results</p>
+          <p className="text-muted-foreground mt-1">
+            Salary calculation results 
+            {selectedMonth && selectedYear && (
+              <span className="ml-2 text-primary font-medium">
+                ({getMonthName(selectedMonth)} {selectedYear})
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button 
+            onClick={handleSaveSalary} 
+            disabled={isSaving || !calculationResults}
+            className="gap-2 bg-green-600 hover:bg-green-700" 
+            data-testid="save-salary-btn"
+          >
+            <Save className="w-4 h-4" />
+            {isSaving ? 'Saving...' : 'Save Salary'}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setIsHistoryModalOpen(true)} 
+            className="gap-2"
+            data-testid="view-history-btn"
+          >
+            <History className="w-4 h-4" />
+            Past Months ({salaryHistory.length})
+          </Button>
           <Button onClick={handleDownloadExcel} className="gap-2" data-testid="download-excel-btn">
             <FileSpreadsheet className="w-4 h-4" />
             {t('downloadExcel')}
