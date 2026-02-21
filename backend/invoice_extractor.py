@@ -402,13 +402,6 @@ def extract_flipkart_invoice(text: str, filename: str) -> Dict[str, Any]:
             sac_codes = re.findall(r'\b(99\d{4})\b', text)
             unique_sacs = list(set(sac_codes))
             
-            # Common Flipkart service descriptions
-            # Common services: [
-                'Collection Fee', 'Shipping Fee', 'Fixed Fee', 
-                'Ad Services Fee', 'Customer Add-ons Amount Recovery',
-                'Customer Add-ons Recovery', 'Amount Recovery'
-            ]
-            
             for sac in unique_sacs:
                 data['line_items'].append({
                     "category_code_or_hsn": sac,
