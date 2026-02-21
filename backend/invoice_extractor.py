@@ -255,16 +255,34 @@ def extract_flipkart_invoice(text: str, filename: str) -> Dict[str, Any]:
             break
     
     # Extract Service Provider GSTIN (Flipkart's GSTIN in BILLED FROM section)
-    # Pattern: "GSTIN: 29AACCF0683K1ZD"
-    gstin_pattern = r'GSTIN:\s*(\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1})'
-    gstin_matches = re.findall(gstin_pattern, text, re.IGNORECASE)
+    # Flipkart's GSTIN is in Karnataka: 29AACCF0683K1ZD
+    # The structure is: BILLED FROM: ... GSTIN: xxx ... BILLED TO: ... GSTIN: yyy
     
-    if gstin_matches:
-        # First GSTIN is usually the service provider (Flipkart)
-        data['service_provider_gstin'] = gstin_matches[0].upper()
-        # Second GSTIN (if exists) is the service receiver
-        if len(gstin_matches) >= 2:
-            data['service_receiver_gstin'] = gstin_matches[1].upper()
+    # Try to extract GSTINs with section context
+    gstin_pattern = r'(\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1})'
+    
+    # Look for GSTIN after "BILLED FROM" and before "BILLED TO"
+    billed_from_section = re.search(r'BILLED\s*FROM:(.+?)BILLED\s*TO:', text, re.IGNORECASE | re.DOTALL)
+    if billed_from_section:
+        provider_gstin_match = re.search(gstin_pattern, billed_from_section.group(1), re.IGNORECASE)
+        if provider_gstin_match:
+            data['service_provider_gstin'] = provider_gstin_match.group(1).upper()
+    
+    # Look for GSTIN after "BILLED TO"
+    billed_to_section = re.search(r'BILLED\s*TO:(.+?)(?:IRN:|Service|$)', text, re.IGNORECASE | re.DOTALL)
+    if billed_to_section:
+        receiver_gstin_match = re.search(gstin_pattern, billed_to_section.group(1), re.IGNORECASE)
+        if receiver_gstin_match:
+            data['service_receiver_gstin'] = receiver_gstin_match.group(1).upper()
+    
+    # Fallback: If above didn't work, use all GSTIN matches
+    if not data['service_provider_gstin'] or not data['service_receiver_gstin']:
+        gstin_matches = re.findall(r'GSTIN:\s*' + gstin_pattern, text, re.IGNORECASE)
+        if gstin_matches:
+            if not data['service_provider_gstin']:
+                data['service_provider_gstin'] = gstin_matches[0].upper()
+            if not data['service_receiver_gstin'] and len(gstin_matches) >= 2:
+                data['service_receiver_gstin'] = gstin_matches[1].upper()
     
     # Extract Service Receiver Name (Business Name from BILLED TO section)
     receiver_patterns = [
