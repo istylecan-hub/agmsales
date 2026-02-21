@@ -866,6 +866,342 @@ export default function SalaryReport() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Salary History Modal */}
+      <Dialog open={isHistoryModalOpen} onOpenChange={setIsHistoryModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh]" data-testid="history-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <History className="w-5 h-5" />
+                Saved Salary Records
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsHistoryModalOpen(false);
+                    setIsCompareModalOpen(true);
+                  }}
+                  className="gap-2"
+                >
+                  <ArrowLeftRight className="w-4 h-4" />
+                  Compare Months
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsHistoryModalOpen(false);
+                    setIsGrowthModalOpen(true);
+                  }}
+                  className="gap-2"
+                >
+                  <TrendingUp className="w-4 h-4" />
+                  Employee Growth
+                </Button>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <ScrollArea className="max-h-[60vh]">
+            {salaryHistory.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <History className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p>No saved salary records yet</p>
+                <p className="text-sm">Click "Save Salary" to save current calculations</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Month/Year</TableHead>
+                    <TableHead className="text-right">Employees</TableHead>
+                    <TableHead className="text-right">Total Payout</TableHead>
+                    <TableHead>Saved On</TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {salaryHistory.map((record) => (
+                    <TableRow key={record.record_id}>
+                      <TableCell className="font-medium">
+                        <Badge variant="outline">
+                          {getMonthName(record.month)} {record.year}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {record.employeeCount}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-bold">
+                        ₹{(record.totalPayout || 0).toLocaleString('en-IN')}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {record.savedAt ? new Date(record.savedAt).toLocaleDateString() : '-'}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleViewHistoryRecord(record)}
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteHistoryRecord(record)}
+                            title="Delete"
+                            className="text-red-500 hover:text-red-600"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </ScrollArea>
+
+          {/* Show selected history record details */}
+          {selectedHistoryRecord && (
+            <div className="mt-4 border-t pt-4">
+              <h4 className="font-semibold mb-3">
+                Details for {getMonthName(selectedHistoryRecord.month)} {selectedHistoryRecord.year}
+              </h4>
+              <ScrollArea className="max-h-[300px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Code</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead className="text-center">Present</TableHead>
+                      <TableHead className="text-center">OT Hrs</TableHead>
+                      <TableHead className="text-center">Payable</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(selectedHistoryRecord.employees || []).map((emp) => (
+                      <TableRow key={emp.code}>
+                        <TableCell className="font-mono">{emp.code}</TableCell>
+                        <TableCell>{emp.name}</TableCell>
+                        <TableCell className="text-center">{emp.presentDays}</TableCell>
+                        <TableCell className="text-center">{emp.otHours || 0}</TableCell>
+                        <TableCell className="text-center">{emp.totalPayableDays}</TableCell>
+                        <TableCell className="text-right font-mono font-bold">
+                          ₹{(emp.totalSalary || 0).toLocaleString('en-IN')}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Compare Months Modal */}
+      <Dialog open={isCompareModalOpen} onOpenChange={setIsCompareModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh]" data-testid="compare-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowLeftRight className="w-5 h-5" />
+              Compare Salary Months
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Month 1</label>
+              <Select value={compareMonth1} onValueChange={setCompareMonth1}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select month" />
+                </SelectTrigger>
+                <SelectContent>
+                  {salaryHistory.map((r) => (
+                    <SelectItem key={r.record_id} value={r.record_id}>
+                      {getMonthName(r.month)} {r.year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Month 2</label>
+              <Select value={compareMonth2} onValueChange={setCompareMonth2}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select month" />
+                </SelectTrigger>
+                <SelectContent>
+                  {salaryHistory.map((r) => (
+                    <SelectItem key={r.record_id} value={r.record_id}>
+                      {getMonthName(r.month)} {r.year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <Button onClick={handleCompareMonths} className="w-full mb-4">
+            Compare
+          </Button>
+
+          {comparisonData && (
+            <div className="space-y-4">
+              {/* Summary */}
+              <div className="grid grid-cols-3 gap-4 p-4 bg-secondary/30 rounded-lg">
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">{comparisonData.month1.label}</p>
+                  <p className="text-xl font-bold font-mono">
+                    ₹{(comparisonData.summary.totalPayout1 || 0).toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">Difference</p>
+                  <p className={`text-xl font-bold font-mono ${comparisonData.summary.difference >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {comparisonData.summary.difference >= 0 ? '+' : ''}₹{(comparisonData.summary.difference || 0).toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">{comparisonData.month2.label}</p>
+                  <p className="text-xl font-bold font-mono">
+                    ₹{(comparisonData.summary.totalPayout2 || 0).toLocaleString('en-IN')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Employee-wise comparison */}
+              <ScrollArea className="max-h-[400px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Employee</TableHead>
+                      <TableHead className="text-right">{comparisonData.month1.label}</TableHead>
+                      <TableHead className="text-right">{comparisonData.month2.label}</TableHead>
+                      <TableHead className="text-right">Diff</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(comparisonData.employees || []).map((emp) => (
+                      <TableRow key={emp.code}>
+                        <TableCell>
+                          <span className="font-mono text-sm">{emp.code}</span>
+                          <span className="ml-2">{emp.name}</span>
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          ₹{(emp.salary1 || 0).toLocaleString('en-IN')}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          ₹{(emp.salary2 || 0).toLocaleString('en-IN')}
+                        </TableCell>
+                        <TableCell className={`text-right font-mono font-bold ${emp.difference >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          {emp.difference >= 0 ? '+' : ''}₹{(emp.difference || 0).toLocaleString('en-IN')}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Employee Growth Modal */}
+      <Dialog open={isGrowthModalOpen} onOpenChange={setIsGrowthModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh]" data-testid="growth-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5" />
+              Employee Salary Growth
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex gap-4 mb-4">
+            <div className="flex-1">
+              <Select value={growthEmployee} onValueChange={setGrowthEmployee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.code} value={emp.code}>
+                      {emp.code} - {emp.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleEmployeeGrowth}>
+              View Growth
+            </Button>
+          </div>
+
+          {growthData && (
+            <div className="space-y-4">
+              {/* Summary */}
+              <div className="grid grid-cols-3 gap-4 p-4 bg-secondary/30 rounded-lg">
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">Months Tracked</p>
+                  <p className="text-2xl font-bold">{growthData.monthsTracked}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">Total Growth</p>
+                  <p className={`text-2xl font-bold ${growthData.totalGrowth >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {growthData.totalGrowth >= 0 ? '+' : ''}₹{(growthData.totalGrowth || 0).toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">Avg Monthly</p>
+                  <p className={`text-2xl font-bold ${growthData.avgMonthlyGrowth >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {growthData.avgMonthlyGrowth >= 0 ? '+' : ''}₹{(growthData.avgMonthlyGrowth || 0).toLocaleString('en-IN')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Monthly history */}
+              <ScrollArea className="max-h-[400px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Month</TableHead>
+                      <TableHead className="text-right">Base Salary</TableHead>
+                      <TableHead className="text-center">Present Days</TableHead>
+                      <TableHead className="text-center">OT Hours</TableHead>
+                      <TableHead className="text-right">Total Earned</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(growthData.history || []).map((month, idx) => (
+                      <TableRow key={month.label}>
+                        <TableCell>
+                          <Badge variant="outline">{month.label}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          ₹{(month.baseSalary || 0).toLocaleString('en-IN')}
+                        </TableCell>
+                        <TableCell className="text-center">{month.presentDays}</TableCell>
+                        <TableCell className="text-center">{month.otHours || 0}</TableCell>
+                        <TableCell className="text-right font-mono font-bold">
+                          ₹{(month.totalSalary || 0).toLocaleString('en-IN')}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
