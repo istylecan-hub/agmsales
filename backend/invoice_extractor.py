@@ -285,7 +285,7 @@ def extract_meesho_invoice(text: str, filename: str) -> Dict[str, Any]:
                 
                 if amounts:
                     # Try to identify fee, tax, and total
-                    # Usually: Fee (largest or first), Tax Rate (small number like 18), Tax Amount, Total
+                    # Usually in order: Taxable Value (fee), Tax Amount, Total
                     fee_amount = None
                     tax_amount = None
                     total_amount = None
@@ -295,18 +295,37 @@ def extract_meesho_invoice(text: str, filename: str) -> Dict[str, Any]:
                     real_amounts = [a for a in amounts if a > 50]  # Tax rates are usually small
                     rate_amounts = [a for a in amounts if a <= 50]
                     
-                    if real_amounts:
-                        if len(real_amounts) >= 3:
-                            fee_amount = real_amounts[-3]
-                            tax_amount = real_amounts[-2]
-                            total_amount = real_amounts[-1]
-                        elif len(real_amounts) == 2:
-                            fee_amount = real_amounts[0]
-                            total_amount = real_amounts[1]
+                    # Sort real amounts ascending (fee < tax < total usually, but total is largest)
+                    real_amounts_sorted = sorted(real_amounts)
+                    
+                    if real_amounts_sorted:
+                        if len(real_amounts_sorted) >= 3:
+                            # Smallest is often fee, middle is tax, largest is total
+                            # But if total = fee + tax, then order is: fee, tax, total
+                            # Check if largest = sum of two smaller ones
+                            if len(real_amounts_sorted) >= 3:
+                                possible_fee = real_amounts_sorted[0]
+                                possible_tax = real_amounts_sorted[1]
+                                possible_total = real_amounts_sorted[2]
+                                
+                                # Check if total ≈ fee + tax (within 1%)
+                                if abs(possible_total - (possible_fee + possible_tax)) < possible_total * 0.01:
+                                    fee_amount = possible_fee
+                                    tax_amount = possible_tax
+                                    total_amount = possible_total
+                                else:
+                                    # Just assign in order
+                                    fee_amount = real_amounts_sorted[0]
+                                    tax_amount = real_amounts_sorted[-2] if len(real_amounts_sorted) > 2 else None
+                                    total_amount = real_amounts_sorted[-1]
+                        elif len(real_amounts_sorted) == 2:
+                            # Smaller is fee, larger is total (tax = total - fee)
+                            fee_amount = min(real_amounts_sorted)
+                            total_amount = max(real_amounts_sorted)
                             tax_amount = total_amount - fee_amount if total_amount > fee_amount else None
-                        elif len(real_amounts) == 1:
-                            fee_amount = real_amounts[0]
-                            total_amount = real_amounts[0]
+                        elif len(real_amounts_sorted) == 1:
+                            fee_amount = real_amounts_sorted[0]
+                            total_amount = real_amounts_sorted[0]
                     
                     # Get tax rate
                     if rate_amounts:
