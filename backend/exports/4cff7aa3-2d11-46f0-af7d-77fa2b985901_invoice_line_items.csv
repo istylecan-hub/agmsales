@@ -1,0 +1,10 @@
+Invoice Number,Invoice Date,Document Type,Service Provider,Provider GSTIN,Service Receiver,Receiver GSTIN,Place of Supply,Category Code/HSN,Service Description,Fee Amount (INR),CGST (INR),SGST (INR),IGST (INR),Total Tax (INR),Total Amount (INR),Source File
+FKCKA26000190312,31/05/2025,CreditNote,Flipkart Internet Private Limited,29AACCF0683K1ZD,Ransh Enterprises,07AGCPY2367E1Z9,07,998599,Collection Fee,132.85,,,23.91,23.91,156.76,flipkart1.pdf
+FKCKA26000190312,31/05/2025,CreditNote,Flipkart Internet Private Limited,29AACCF0683K1ZD,Ransh Enterprises,07AGCPY2367E1Z9,07,996812,Shipping Fee,576.0,,,103.68,103.68,679.68,flipkart1.pdf
+FKCKA26000190312,31/05/2025,CreditNote,Flipkart Internet Private Limited,29AACCF0683K1ZD,Ransh Enterprises,07AGCPY2367E1Z9,07,998599,Fixed Fee,2358.0,,,424.44,424.44,2782.44,flipkart1.pdf
+FKRKA26000290632,31/05/2025,Invoice,Flipkart Internet Private Limited,29AACCF0683K1ZD,Ransh Enterprises,07AGCPY2367E1Z9,07,998599,Collection Fee,5160.91,,,929.0,929.0,6089.91,flipkart2.pdf
+FKRKA26000290632,31/05/2025,Invoice,Flipkart Internet Private Limited,29AACCF0683K1ZD,Ransh Enterprises,07AGCPY2367E1Z9,07,996812,Shipping Fee,97217.0,,,17499.06,17499.06,114716.06,flipkart2.pdf
+FKRKA26000290632,31/05/2025,Invoice,Flipkart Internet Private Limited,29AACCF0683K1ZD,Ransh Enterprises,07AGCPY2367E1Z9,07,998599,Fixed Fee,105045.0,,,18908.1,18908.1,123953.1,flipkart2.pdf
+FKRKA26000290632,31/05/2025,Invoice,Flipkart Internet Private Limited,29AACCF0683K1ZD,Ransh Enterprises,07AGCPY2367E1Z9,07,998365,Ad Services Fee,17042.48,,,3067.61,3067.61,20110.09,flipkart2.pdf
+ICNDL26000031306,31/05/2025,CommercialCreditNote,Flipkart Internet Private Limited,,Ransh Enterprises,,07,,Fixed Fee,428.4,,,,,428.4,flipkart3.pdf
+ICNDL26000035832,31/05/2025,CommercialCreditNote,Flipkart Internet Private Limited,,Ransh Enterprises,,07,,Commission Fee,14.4,,,,,14.4,flipkart4.pdf
