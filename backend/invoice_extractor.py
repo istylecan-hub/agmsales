@@ -280,10 +280,13 @@ def extract_meesho_invoice(text: str, filename: str) -> Dict[str, Any]:
         # Look for SAC codes in the line
         for sac_code, description in SAC_DESCRIPTIONS.items():
             if sac_code in line_clean:
+                # Remove SAC code from line to avoid it being counted as amount
+                line_without_sac = line_clean.replace(sac_code, '')
+                
                 # Extract all amounts from this line in order of appearance
-                amount_pattern = r'(\d+(?:,\d{3})*\.?\d*)'
-                found_amounts = re.findall(amount_pattern, line_clean)
-                amounts_in_order = [normalize_amount(a) for a in found_amounts if normalize_amount(a) and normalize_amount(a) > 50]
+                amount_pattern = r'(\d+(?:,\d{3})*\.\d{2})'  # Match amounts with exactly 2 decimal places
+                found_amounts = re.findall(amount_pattern, line_without_sac)
+                amounts_in_order = [normalize_amount(a) for a in found_amounts if normalize_amount(a)]
                 
                 fee_amount = None
                 tax_amount = None
@@ -316,17 +319,18 @@ def extract_meesho_invoice(text: str, filename: str) -> Dict[str, Any]:
                         fee_amount = amounts_in_order[0]
                         total_amount = amounts_in_order[0]
                 
-                data['line_items'].append({
-                    "category_code_or_hsn": sac_code,
-                    "service_description": description,
-                    "fee_amount": fee_amount,
-                    "cgst_amount": tax_amount / 2 if tax_amount and tax_rate == 9 else None,
-                    "sgst_amount": tax_amount / 2 if tax_amount and tax_rate == 9 else None,
-                    "igst_amount": tax_amount if tax_amount and (tax_rate == 18 or not tax_rate) else None,
-                    "total_tax_amount": tax_amount,
-                    "total_amount": total_amount,
-                    "tax_rate_percent": tax_rate or 18.0
-                })
+                if fee_amount or total_amount:  # Only add if we found some amounts
+                    data['line_items'].append({
+                        "category_code_or_hsn": sac_code,
+                        "service_description": description,
+                        "fee_amount": fee_amount,
+                        "cgst_amount": tax_amount / 2 if tax_amount and tax_rate == 9 else None,
+                        "sgst_amount": tax_amount / 2 if tax_amount and tax_rate == 9 else None,
+                        "igst_amount": tax_amount if tax_amount and (tax_rate == 18 or not tax_rate) else None,
+                        "total_tax_amount": tax_amount,
+                        "total_amount": total_amount,
+                        "tax_rate_percent": tax_rate or 18.0
+                    })
                 break  # Found this SAC, move to next line
     
     # If no line items found, try simpler extraction
