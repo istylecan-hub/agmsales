@@ -1,152 +1,157 @@
 <analysis>**original_problem_statement:**
-The user wants to build a complete Salary Calculator web application for a garment manufacturing company, AGM Sales.
+The user initially requested a Salary Calculator web application for their garment manufacturing company, AGM Sales. The core requirements included Employee Master management (CRUD), attendance processing from a specific Excel format, configurable salary calculation logic, and report generation (Excel/PDF).
+
+Subsequently, the user requested to merge a second application, an Invoice Data Extractor (from a project named docxtractor-2), into the Salary Calculator app. This new module should allow uploading PDF invoices, extracting data using AI, and exporting the results to CSV/Excel.
+
+The most recent user requests are:
+1.  **Fix a critical bug where Employee Master data was not persisting.** The user was forced to re-upload employee data in every session.
+2.  **Fix a bug in the Invoice Extractor** where it fails to correctly parse invoices from Flipkart.
 
 **PRODUCT REQUIREMENTS:**
-- **Section 1: Employee Master Management:** Full CRUD for employee data (Code, Name, Department, Salary, etc.) with Excel import/export.
-- **Section 2: Attendance Upload:** Process a specific 10-row-per-employee Excel format. The app should preview attendance data and flag discrepancies.
-- **Section 3: Salary Configuration:** A wizard-like interface to configure various calculation rules (OT, half-day, sandwich rule, short hours, etc.).
-- **Section 4: Salary Output & Download:** A dashboard and detailed table showing the calculated salary for all employees. It must support downloading reports as formatted Excel/PDF and individual employee salary slips as PDF.
-- **Core Logic Simplification (Latest Request):** All calculations (Present, Absent, Overtime, Short Hours) must be derived *only* from the IN and OUT time columns in the attendance sheet. Pre-calculated , , and  (P/A/WO/HL) from the sheet should be completely ignored.
-- **Holiday Management:** Allow the user to manually mark dates as holidays after uploading the attendance sheet.
-- **UI:** Modern, responsive UI with a step-by-step flow, dark/light modes, and an English/Hindi language toggle.
+- **Salary Calculator Module:**
+    - Full CRUD for employee data, now persisting in a MongoDB database.
+    - Process attendance from Excel, deriving all calculations (Present, Absent, OT) from IN/OUT times.
+    - A configuration page for salary rules (OT, sandwich rule, short hours).
+    - A report page to view calculated salaries and download reports/salary slips.
+- **Invoice Extractor Module:**
+    - A separate page/section in the app.
+    - Drag-and-drop UI to upload multiple PDF invoices.
+    - Use an LLM (GPT-5.2) to extract key data (Invoice #, date, GSTINs, line items, amounts).
+    - Provide a regex-based fallback for extraction.
+    - Display extracted data in the UI.
+    - Export all extracted data to formatted CSV and Excel files.
+    - **Must work reliably for Amazon, Meesho, and Flipkart invoices.**
 
-**User's preferred language**: The user communicates in a mix of English and Hindi. The next agent MUST respond in a similar Hinglish format.
+**User's preferred language**: The user communicates in a mix of English and Hindi (Hinglish). The next agent **MUST** continue to respond in Hinglish to maintain user comfort and clarity.
 
 **what currently exists?**
-A client-side-only React application that fulfills most of the user's requirements. It uses  for data persistence. Key features like Employee Management, Attendance Upload, configurable salary calculations, and report generation (Excel/PDF/Salary Slips) are implemented. The UI includes light/dark modes and a language toggle.
+A full-stack application with a React frontend and a FastAPI backend connected to MongoDB. The application now contains two primary, integrated modules:
+1.  **Salary Calculator**: Functionality is largely complete. A critical bug preventing employee data from persisting has been fixed by adding backend APIs and a MongoDB collection for employees.
+2.  **Invoice Extractor**: This module has been successfully merged from another project. It has its own backend logic, API endpoints, and a dedicated frontend page. It works for Amazon and Meesho invoices but fails on Flipkart invoices.
 
 **Last working item**:
-- **Last item agent was working**: Simplifying the salary calculation logic. The user requested that all calculations (Present, Absent, OT, Short Hours) be derived *exclusively* from employee IN and OUT times, ignoring all other pre-calculated fields like 'Work Hours', 'OT', and 'Status' in the attendance sheet. The agent overwrote  to implement this new logic.
-- **Status**: IN PROGRESS
-- **Agent Testing Done**: N
-- **Which testing method agent to use?**: frontend testing agent
-- **User Testing Done**: N
+-   **Last item agent was working**: Debugging the Invoice Extractor's failure to parse Flipkart invoices. The user provided four sample PDF invoices and an Excel file showing the incorrect extracted data. The agent began analyzing the files to understand the structural differences in Flipkart invoices and why the current extraction logic (LLM prompt and regex) is failing.
+-   **Status**: IN PROGRESS
+-   **Agent Testing Done**: N
+-   **Which testing method agent to use?**: backend testing agent (to test the updated extraction logic on the sample PDFs).
+-   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
-- **Issue 1**:  Finalize the simplification of the salary calculation logic (Priority: P0)
+-   **Issue 1**: Fix Flipkart invoice data extraction (Priority: P0)
+-   **Issue 2**: The implemented Employee Master persistence fix needs to be deployed to the live production environment. (Priority: P1)
+-   **Issue 3**: Low-priority UI glitch: navigation visibility concern from an early test report. (Priority: P2)
 
 **Issues Detail**:
-- **Issue 1**:
-    - **Description**: The user wants all calculations to be based *only* on IN/OUT times. The core logic in  has been updated, but the corresponding UI and data parsing may still be referencing old methods.
-    - **Attempted fixes**: The file  was overwritten with the new logic.
-    - **Next debug checklist**:
-        1.  **Modify UI**: Edit  to remove the Use OT from Attendance Sheet toggle, as it is now obsolete.
-        2.  **Update Defaults**: In the same file, update the  function to remove the old OT configuration.
-        3.  **Verify Parser**: Check  to ensure it only passes IN and OUT times to the calculator, or that the calculator correctly ignores the other fields.
-    - **Why fix this issue and what will be achieved with the fix?**: This will align the application with the user's explicit requirement for a simplified and more robust calculation model, removing user confusion and ensuring correctness.
-    - **Status**: IN PROGRESS
-    - **Is recurring issue?**: N
-    - **Should Test frontend/backend/both after fix?**: frontend
+-   **Issue 1: Fix Flipkart invoice data extraction**
+    -   **Description**: The data extraction logic in  is not tuned for Flipkart's invoice layout. Key fields like Invoice Number, GSTINs, service provider/receiver details, and line-item amounts are being missed or incorrectly extracted.
+    -   **Attempted fixes**: The agent has analyzed one of the provided PDFs and confirmed the issue. No code has been modified yet.
+    -   **Next debug checklist**:
+        1.  Analyze the user-provided  to see the exact incorrect output for all 4 sample files.
+        2.  Analyze the structure of the remaining 3 Flipkart PDF artifacts to identify consistent patterns for the required data fields.
+        3.  Update the LLM system prompt in the  function within  to specifically guide it on parsing the Flipkart layout.
+        4.  Enhance the  function in the same file with new regex patterns tailored for Flipkart as a robust fallback.
+        5.  Test the fix by running the extraction on the 4 sample PDFs provided by the user.
+    -   **Why fix this issue and what will be achieved with the fix?**: This is a core requirement for the Invoice Extractor. Fixing it will make the feature functional and valuable to the user.
+    -   **Status**: IN PROGRESS
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: backend
 
 **In progress Task List**:
-- **Task 1**: Remove obsolete UI elements from the Salary Configuration page.
-    - **Where to resume**: .
-    - **What will be achieved with this?**: The user interface will accurately reflect the new, simplified calculation logic, preventing confusion.
-    - **Status**: NOT STARTED
-    - **Should Test frontend/backend/both after fix?**: frontend
-    - **Blocked on something**: None.
+-   None, the work is captured in the issue list.
 
 **Upcoming and Future Tasks**
-- None currently. The user wants to finalize the current feature set before considering deployment.
+-   **Upcoming Tasks**:
+    -   **Re-deploy the application (P0)**: After the Flipkart invoice issue is resolved, the application must be re-deployed to push both the invoice fix and the critical employee persistence fix to the live environment.
+-   **Future Tasks**:
+    -   **Add Regex Only Mode to Invoice Extractor (P1)**: Implement a UI toggle to allow the user to run the invoice extractor using only the regex fallback. This will function as a no-cost mode, saving LLM credits when high accuracy is not required.
 
 **Completed work in this session**
-- **Employee Management**: Implemented full CRUD with Excel import/export ().
-- **Attendance Processing**: Built the logic to parse the 10-row Excel format and preview data (, ).
-- **Holiday Management**: Added a feature to manually mark holidays after attendance upload.
-- **Salary Calculation Engine**: Created and iteratively refined the core calculation logic based on user feedback ().
-- **Short Hours Deduction**: Implemented logic and UI to calculate and deduct pay for short working hours.
-- **Report Generation**:
-    - Created a detailed salary report page with summaries and per-employee drill-downs ().
-    - Implemented Export to Excel and Export to PDF for the main report ().
-- **Individual Salary Slips**: Added functionality to generate and download a PDF salary slip for each employee.
-- **UI Enhancements**: Implemented Dark/Light mode and an English/Hindi language toggle.
+-   **Invoice Extractor Integration**: Successfully merged the entire docxtractor-2 application (frontend and backend) into the main Salary Calculator app. This included creating new backend routes, frontend pages, and navigation links.
+-   **Employee Data Persistence (Critical Bug Fix)**: Resolved the user's biggest pain point by implementing a full backend solution for the Employee Master.
+    -   Created FastAPI endpoints for CRUD operations on employees ().
+    -   Connected the backend to a MongoDB database to permanently store employee data.
+    -   Modified the frontend React context () to sync employee data with the backend, ensuring data persists across sessions and browsers.
 
 **Earlier issues found/mentioned but not fixed**
-- **Issue 1**: A low-priority navigation visibility concern was mentioned in the first test report ().
-    - **Debug checklist**: Review the details in the test report and inspect  and related CSS to identify and fix the UI glitch.
-    - **Why to solve this issue and what will be achieved with this?**: To improve UI/UX consistency and polish.
-    - **Should Test frontend/backend/both after fix**: frontend
-    - **Is recurring issue?**: N
+-   **Issue 1**: A low-priority navigation visibility concern was noted in an early test report () but was never addressed.
+    -   **Debug checklist**: Review the test report and inspect  and related CSS.
+    -   **Why to solve this issue and what will be achieved with this?**: To improve overall UI polish and user experience.
+    -   **Should Test frontend/backend/both after fix**: frontend
+    -   **Is recurring issue?**: N
 
 **Known issue recurrence from previous fork**
-- N/A
+-   N/A
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Frontend**: React, Tailwind CSS
-- **Data Persistence**: Client-side using browser .
-- **File Processing**: SheetJS (xlsx) for Excel reading/writing, jsPDF with jsPDF-AutoTable for PDF generation.
-- **State Management**: React Context API ().
-- **UI Components**: Shadcn/UI.
+-   **Frontend**: React, Tailwind CSS, Shadcn/UI
+-   **Backend**: FastAPI, Python
+-   **Database**: MongoDB (using  for async operations)
+-   **State Management**: React Context API
+-   **AI Integration**:  library for OpenAI GPT-5.2 calls.
+-   **File Handling**:  and  for PDF text/OCR extraction,  for Excel generation.
 
 **key DB schema**
-The application is client-side and uses . The keys are defined in :
-- : Stores the list of employees.
-- : Stores the user's selected calculation rules.
-- : Stores the parsed data from the last uploaded attendance file.
-- : Stores the results of the last salary calculation.
-
-**changes in tech stack**
-- None.
+-   ** collection**: 
+-   ** collection**: 
+-   ** collection**: 
 
 **All files of reference**
-- : The core logic engine. **Recently modified.**
-- : The UI for salary rules. **Needs modification.**
-- : Handles file upload, preview, and holiday management.
-- : Displays results and contains download buttons for reports and slips.
-- : Contains logic for all Excel and PDF exports, including salary slips.
-- : Manages the application's global state.
-
-**Areas that need refactoring**:
-- The  file has undergone multiple revisions. A review for dead code from previous calculation methods is recommended after the current task is complete.
-- The  component handles file drag-and-drop, parsing, preview, error checking, and holiday management. It could be broken down into smaller, more focused components.
-
-**key api endpoints**
-- N/A (Client-side application).
+-   : **(Primary file for the current task)** Contains the LLM prompt and regex logic that needs to be fixed.
+-   : Main backend file, recently modified to add Employee CRUD routes.
+-   : Frontend state logic, recently modified to sync with the MongoDB backend.
+-   : The UI for the module with the bug.
+-   **User-provided artifacts**:
+    -   
+    -   
+    -   
+    -   
+    -   
 
 **Critical Info for New Agent**
-- **This is a client-side-only application.** All logic is in JavaScript, and all data is stored in the browser's . Do not attempt to add or modify backend components.
-- The user's most recent and important request is to **simplify the calculation logic**. The app must now ignore the , , and  rows from the attendance sheet and calculate everything from scratch using only  and  times.
-- The user frequently provides feedback to refine the calculation logic. Be prepared to iterate on .
+-   The application is now a full-stack app. The original client-side-only architecture has been upgraded to include a FastAPI backend and MongoDB for data persistence.
+-   Your immediate priority is to fix the data extraction logic for Flipkart invoices in . Use the artifacts provided by the user for debugging and testing.
+-   After fixing the invoice issue, you must guide the user to **re-deploy** the application. This is critical because the fix for employee data not being saved is complete but **not yet live** on their production URL.
+-   You **MUST** communicate with the user in Hinglish.
 
 **documents and test reports created in this job**
-- 
-- 
-- 
+-    (Updated with Invoice Extractor requirements)
+-   
 
 **Last 10 User Messages and any pending HUMAN messages**
-10. **User**: Why is there a difference in OT calculation between the machine and your app?
-9. **Agent**: Explained the discrepancy was due to ignoring the OT row from the sheet for Sunday work, and fixed it.
-8. **User**: Clarified the exact OT/Sunday formulas and requested individual salary slip PDFs.
-7. **Agent**: Acknowledged and implemented the new formulas and salary slip feature.
-6. **Agent**: Ran a deployment health check, confirming the app is ready.
-5. **User**: Pointed out a missed feature: manually marking holidays after upload.
-4. **Agent**: Acknowledged and implemented the Holiday Management feature.
-3. **User**: Asked to save the work and will decide on deployment later.
-2. **User**: Asked about credits for deployment and usage.
-1. **User (Latest Task)**: Requested to simplify the logic again: use *only* IN/OUT time for all calculations, ignoring OT, Work Hours, and Status rows from the attendance sheet.
+10. **User**: How can I find this project in the future to make changes?
+9.  **User**: Okay, merge the docxtractor-2 app into this one.
+8.  **User**: *Provides Job ID for the other app.*
+7.  **User**: *Provides full code for  and  for the invoice extractor.*
+6.  **User**: Why do I have to upload the employee master every time? Why isn't the data saving permanently?
+5.  **Agent**: *Fixes the persistence issue by adding a MongoDB backend for employees and verifies the fix in the preview environment.*
+4.  **User**: Recharge done.
+3.  **Agent**: Summarizes the employee persistence fix and explains that a re-deployment is needed.
+2.  **User (LATEST)**: The invoice extractor is not extracting data correctly for some Flipkart invoices. I've uploaded the invoices and the incorrect Excel output. Please check and fix it.
+1.  **Agent**: Okay, I will analyze the Flipkart invoices and see what the issue is with the data extraction.
 
 **Project Health Check:**
-- **Broken**: None.
-- **Mocked**: None.
+-   **Broken**: The Invoice Extractor feature is partially broken (specifically for Flipkart invoices).
+-   **Mocked**: None.
 
 **3rd Party Integrations**
-- **SheetJS (xlsx)**: Used for reading and generating Excel files.
-- **jsPDF & jsPDF-AutoTable**: Used for generating PDF reports and salary slips.
+-   **SheetJS (xlsx)**: Frontend Excel processing.
+-   **jsPDF & jsPDF-AutoTable**: Frontend PDF generation.
+-   **OpenAI GPT-5.2**: Used via  for AI-based data extraction.
+-   **Pytesseract**: For OCR fallback during PDF processing.
+-   **MongoDB**: Primary database for persistent data.
 
 **Testing status**
-- **Testing agent used after significant changes**: YES
-- **Troubleshoot agent used after agent stuck in loop**: NO
-- **Test files created**:
-    - 
-    - 
-- **Known regressions**: None, but the latest core logic change is untested.
+-   **Testing agent used after significant changes**: YES (used after the initial big refactor).
+-   **Troubleshoot agent used after agent stuck in loop**: NO
+-   **Test files created**: 
+-   **Known regressions**: None.
 
 **Credentials to test flow:**
-- N/A
+-   N/A
 
 **What agent forgot to execute**
-- The agent started implementing the new simplified calculation logic but did not finish. It updated  but failed to remove the now-obsolete Use OT from Attendance Sheet toggle from the  UI.
-- A low-priority navigation visibility concern from the first test report () was never investigated or fixed.</analysis>
+-   The agent did not address the low-priority navigation visibility concern mentioned in .
+-   The agent has implemented the employee persistence fix but has not yet prompted the user to re-deploy the application to make the changes live. This should be done after the current high-priority issue is resolved.</analysis>
