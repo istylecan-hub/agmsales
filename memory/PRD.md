@@ -132,6 +132,14 @@ Total Salary = (Monthly Salary / Days in Month) × Total Payable Days
   - Commercial Credit Note (ICNDL prefix) without tax
 - ✅ Regex patterns for Flipkart: Invoice #, Date, GSTINs, SAC codes, Line items, Totals
 - ✅ Testing: 15/15 tests passed for Flipkart extraction
+- ✅ **Monthly Salary History Feature** - NEW
+  - Save Salary button on Reports page
+  - View Past Months modal with saved records
+  - Month-to-month comparison with diff analysis
+  - Employee salary growth tracking
+  - Edit saved salary records
+  - Delete salary records
+  - Testing: 18/18 tests passed for Salary History APIs
 
 ---
 
