@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { exportSalaryToExcel, exportSalaryToPDF, exportEmployeeBreakdownToExcel, generateSalarySlipPDF } from '../utils/exportUtils';
@@ -22,6 +22,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { toast } from 'sonner';
 import {
@@ -38,6 +45,13 @@ import {
   Eye,
   Calendar,
   X,
+  Save,
+  History,
+  TrendingUp,
+  ArrowLeftRight,
+  Edit,
+  Trash2,
+  Check,
 } from 'lucide-react';
 
 export default function SalaryReport() {
