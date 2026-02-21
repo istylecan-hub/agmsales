@@ -1150,6 +1150,9 @@ export default function SalaryReport() {
               <TrendingUp className="w-5 h-5" />
               Employee Salary Growth
             </DialogTitle>
+            <DialogDescription>
+              Track salary growth over time
+            </DialogDescription>
           </DialogHeader>
           
           <div className="flex gap-4 mb-4">
