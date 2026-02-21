@@ -403,7 +403,7 @@ def extract_flipkart_invoice(text: str, filename: str) -> Dict[str, Any]:
             unique_sacs = list(set(sac_codes))
             
             # Common Flipkart service descriptions
-            service_descriptions = [
+            # Common services: [
                 'Collection Fee', 'Shipping Fee', 'Fixed Fee', 
                 'Ad Services Fee', 'Customer Add-ons Amount Recovery',
                 'Customer Add-ons Recovery', 'Amount Recovery'
