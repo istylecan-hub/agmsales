@@ -45,6 +45,17 @@ async def get_database():
 # Create the main app without a prefix
 app = FastAPI()
 
+# CORS middleware - MUST be added FIRST before any routes
+# Allow all origins for production deployment
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
+
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
