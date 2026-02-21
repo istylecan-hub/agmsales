@@ -1039,6 +1039,9 @@ export default function SalaryReport() {
               <ArrowLeftRight className="w-5 h-5" />
               Compare Salary Months
             </DialogTitle>
+            <DialogDescription>
+              Select two months to compare salary data
+            </DialogDescription>
           </DialogHeader>
           
           <div className="grid grid-cols-2 gap-4 mb-4">
