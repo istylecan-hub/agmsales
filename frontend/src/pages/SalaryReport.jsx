@@ -56,7 +56,12 @@ import {
 
 export default function SalaryReport() {
   const navigate = useNavigate();
-  const { t, calculationResults, employees, salaryConfig, selectedMonth, selectedYear, daysInMonth } = useApp();
+  const { t, calculationResults, employees, config: salaryConfig, attendanceData } = useApp();
+  
+  // Get month/year from attendanceData
+  const selectedMonth = attendanceData?.selectedMonth || new Date().getMonth() + 1;
+  const selectedYear = attendanceData?.selectedYear || new Date().getFullYear();
+  const daysInMonth = attendanceData?.daysInMonth || 30;
   
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState('code');
