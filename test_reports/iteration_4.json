@@ -1,0 +1,57 @@
+{
+  "summary": "Completed backend testing of Flipkart invoice extraction bug fix. All 15 tests passed. The extraction logic correctly handles all 3 document types: Tax Invoice (FKRKA), Credit Note (FKCKA), and Commercial Credit Note (ICNDL).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Job exists and completed with status=completed",
+    "All 4 test files processed successfully (0 failures)",
+    "flipkart1.pdf Credit Note (FKCKA26000190312) extraction - document type, invoice number, GSTIN, amounts verified",
+    "flipkart2.pdf Tax Invoice (FKRKA26000290632) extraction - document type, invoice number, GSTIN, amounts, 4 line items verified",
+    "flipkart3.pdf Commercial Credit Note (ICNDL26000031306) extraction - no GSTIN, no tax, amount=428.4 verified",
+    "flipkart4.pdf Commercial Credit Note (ICNDL prefix) extraction - no GSTIN, no tax, amount=14.4 verified",
+    "Excel export /api/invoice/export/excel/{job_id} returns valid .xlsx file",
+    "CSV export /api/invoice/export/csv/{job_id} returns valid .csv with invoice data",
+    "Invoice API root endpoint /api/invoice/ returns ready status",
+    "404 returned for non-existent job",
+    "Export correctly returns 404 for non-existent job",
+    "All extracted amounts are valid numbers",
+    "SAC codes format validation (6 digits starting with 99): 998599, 996812, 998365",
+    "GSTIN format validation (15 characters): Provider=29AACCF0683K1ZD, Receiver=07AGCPY2367E1Z9",
+    "Extraction method recorded as flipkart_regex for audit trail",
+    "End-to-end test: New job upload + extraction with use_llm=false works correctly"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_flipkart_invoice_extraction.py",
+    "/app/test_reports/pytest/pytest_flipkart_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_flipkart_invoice_extraction.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 tests passed)",
+    "frontend": "N/A - Backend only testing requested"
+  },
+  "seed_data_creation": "Used existing job 4cff7aa3-2d11-46f0-af7d-77fa2b985901 with 4 pre-processed Flipkart test PDFs",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Flipkart invoice extraction is fully working. Test file at /app/backend/tests/test_flipkart_invoice_extraction.py can be reused for regression testing. The extract_flipkart_invoice() function in /app/backend/invoice_extractor.py correctly handles 3 document types with regex extraction.",
+  "extraction_validation_summary": {
+    "invoice_numbers_verified": ["FKCKA26000190312", "FKRKA26000290632", "ICNDL26000031306", "ICNDL26000035832"],
+    "document_types_verified": ["CreditNote", "Invoice", "CommercialCreditNote"],
+    "gstin_extraction": {
+      "provider": "29AACCF0683K1ZD",
+      "receiver": "07AGCPY2367E1Z9"
+    },
+    "total_amounts_verified": [3626.88, 265128.16, 428.4, 14.4],
+    "sac_codes_verified": ["998599", "996812", "998365"]
+  }
+}
