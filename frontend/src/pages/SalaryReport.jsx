@@ -56,13 +56,184 @@ import {
 
 export default function SalaryReport() {
   const navigate = useNavigate();
-  const { t, calculationResults, employees } = useApp();
+  const { t, calculationResults, employees, salaryConfig, selectedMonth, selectedYear, daysInMonth } = useApp();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState('code');
   const [sortOrder, setSortOrder] = useState('asc');
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  
+  // Salary History states
+  const [salaryHistory, setSalaryHistory] = useState([]);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
+  const [isGrowthModalOpen, setIsGrowthModalOpen] = useState(false);
+  const [selectedHistoryRecord, setSelectedHistoryRecord] = useState(null);
+  const [compareMonth1, setCompareMonth1] = useState('');
+  const [compareMonth2, setCompareMonth2] = useState('');
+  const [comparisonData, setComparisonData] = useState(null);
+  const [growthEmployee, setGrowthEmployee] = useState('');
+  const [growthData, setGrowthData] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  
+  const API_URL = process.env.REACT_APP_BACKEND_URL;
+
+  // Load salary history on mount
+  useEffect(() => {
+    loadSalaryHistory();
+  }, []);
+
+  const loadSalaryHistory = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const res = await fetch(`${API_URL}/api/salary/history`);
+      const data = await res.json();
+      if (data.success) {
+        setSalaryHistory(data.data || []);
+      }
+    } catch (err) {
+      console.error('Error loading salary history:', err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const handleSaveSalary = async () => {
+    if (!calculationResults?.results || !selectedMonth || !selectedYear) {
+      toast.error('No salary data to save');
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      const payload = {
+        month: selectedMonth,
+        year: selectedYear,
+        daysInMonth: daysInMonth || 30,
+        employees: calculationResults.results.map(r => ({
+          code: r.code,
+          name: r.name,
+          department: r.department || '',
+          baseSalary: r.monthlySalary,
+          presentDays: r.presentDays,
+          absentDays: r.absentDays,
+          sandwichDays: r.sandwichDays || 0,
+          sundayWorking: r.sundayWorked || 0,
+          otHours: r.otHours || 0,
+          shortHours: r.shortHours || 0,
+          netOTHours: r.netOTHours || 0,
+          totalPayableDays: r.totalPayableDays,
+          totalSalary: r.totalSalary,
+          perDaySalary: r.perDaySalary || 0,
+          otAmount: r.otAmount || 0,
+          deductions: r.deductions || 0
+        })),
+        totalPayout: calculationResults.summary.totalSalary,
+        config: salaryConfig
+      };
+      
+      const res = await fetch(`${API_URL}/api/salary/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Salary saved for ${selectedMonth}/${selectedYear}`);
+        loadSalaryHistory();
+      } else {
+        toast.error(data.message || 'Failed to save salary');
+      }
+    } catch (err) {
+      toast.error('Error saving salary');
+      console.error(err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleViewHistoryRecord = async (record) => {
+    try {
+      const res = await fetch(`${API_URL}/api/salary/history/${record.year}/${record.month}`);
+      const data = await res.json();
+      if (data.success) {
+        setSelectedHistoryRecord(data.data);
+        setIsHistoryModalOpen(true);
+      } else {
+        toast.error('Failed to load salary record');
+      }
+    } catch (err) {
+      toast.error('Error loading salary record');
+    }
+  };
+
+  const handleDeleteHistoryRecord = async (record) => {
+    if (!window.confirm(`Delete salary record for ${record.month}/${record.year}?`)) return;
+    
+    try {
+      const res = await fetch(`${API_URL}/api/salary/history/${record.year}/${record.month}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Salary record deleted');
+        loadSalaryHistory();
+      } else {
+        toast.error(data.message || 'Failed to delete');
+      }
+    } catch (err) {
+      toast.error('Error deleting record');
+    }
+  };
+
+  const handleCompareMonths = async () => {
+    if (!compareMonth1 || !compareMonth2) {
+      toast.error('Select both months to compare');
+      return;
+    }
+    
+    const [y1, m1] = compareMonth1.split('-');
+    const [y2, m2] = compareMonth2.split('-');
+    
+    try {
+      const res = await fetch(`${API_URL}/api/salary/compare/${y1}/${m1}/${y2}/${m2}`);
+      const data = await res.json();
+      if (data.success) {
+        setComparisonData(data.data);
+      } else {
+        toast.error(data.message || 'Failed to compare');
+      }
+    } catch (err) {
+      toast.error('Error comparing months');
+    }
+  };
+
+  const handleEmployeeGrowth = async () => {
+    if (!growthEmployee) {
+      toast.error('Select an employee');
+      return;
+    }
+    
+    try {
+      const res = await fetch(`${API_URL}/api/salary/employee/${growthEmployee}/growth`);
+      const data = await res.json();
+      if (data.success) {
+        setGrowthData(data.data);
+      } else {
+        toast.error(data.message || 'No growth data found');
+      }
+    } catch (err) {
+      toast.error('Error loading growth data');
+    }
+  };
+
+  const getMonthName = (month) => {
+    const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month] || '';
+  };
 
   // Filter and sort results
   const filteredResults = useMemo(() => {
