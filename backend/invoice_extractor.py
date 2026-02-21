@@ -548,19 +548,36 @@ async def extract_invoice_with_llm(text: str, filename: str, api_key: str) -> Di
         logger.info("LLM not available, using regex extraction")
         return extract_with_regex(text, filename)
     
-    system_prompt = """You are an expert invoice data extractor. Extract structured data from invoice text.
+    system_prompt = """You are an expert invoice data extractor for Indian e-commerce platforms. Extract structured data from invoice text.
 
 IMPORTANT RULES:
 1. Do NOT hallucinate. If a field is not found, use null.
 2. For dates, normalize to dd/mm/yyyy format.
 3. For amounts, remove commas and return numeric values with 2 decimals.
-4. Detect platform: "Amazon" if Amazon Seller Services, "Meesho" if Meesho Technologies, "Fashnear" if Fashnear Technologies, else "Unknown".
-5. document_type should be "Invoice" or "CreditNote".
+4. Detect platform:
+   - "Flipkart" if Flipkart Internet Private Limited
+   - "Amazon" if Amazon Seller Services
+   - "Meesho" if Meesho Technologies
+   - "Fashnear" if Fashnear Technologies
+   - Otherwise "Unknown"
+5. document_type should be:
+   - "Invoice" for Commission/Tax Invoice
+   - "CreditNote" for Credit Note (with tax)
+   - "CommercialCreditNote" for Commercial Credit Note (no tax)
+
+FLIPKART INVOICE STRUCTURE:
+- BILLED FROM: Flipkart Internet Private Limited with GSTIN (service provider)
+- BILLED TO: Customer business details with GSTIN (service receiver)
+- Invoice # or Credit Note #: The document number (e.g., FKRKA26000290632, FKCKA26000190312, ICNDL26000031306)
+- Date: Invoice Date or Credit Note Date in DD-MM-YYYY format
+- Line items table has: Service Accounting Codes (SAC like 998599, 996812), Description, Net Taxable Value, IGST Rate (usually 18%), IGST Amount, Total
+- Common services: Collection Fee, Shipping Fee, Fixed Fee, Ad Services Fee, Customer Add-ons Amount Recovery
+- Total row has: Total Net Taxable Value, Total IGST, Grand Total
 
 Return ONLY valid JSON matching this schema:
 {
-    "source_platform": "Amazon|Meesho|Fashnear|Unknown",
-    "document_type": "Invoice|CreditNote",
+    "source_platform": "Amazon|Meesho|Fashnear|Flipkart|Unknown",
+    "document_type": "Invoice|CreditNote|CommercialCreditNote",
     "invoice_number": "string or null",
     "invoice_date": "dd/mm/yyyy or null",
     "service_provider_name": "string or null",
