@@ -223,9 +223,6 @@ class AceVectorParser(BaseParser):
             amounts = re.findall(r'(\d{1,3}(?:,\d{3})*\.\d{2})', before_text)
             if amounts:
                 self.result.total_invoice_amount = self.normalize_amount(amounts[-1])
-            amounts = re.findall(r'([\d,]+\.?\d{2})', before_text)
-            if amounts:
-                self.result.total_invoice_amount = self.normalize_amount(amounts[-1])
         
         # Calculate from line items
         if self.result.line_items:
