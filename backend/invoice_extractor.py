@@ -17,6 +17,9 @@ import json
 import re
 import csv
 
+# Import universal extractor
+from universal_extractor import universal_extract, normalize_amount, normalize_date, detect_platform
+
 # PDF processing
 import PyPDF2
 try:
