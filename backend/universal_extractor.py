@@ -1,51 +1,37 @@
-# Universal Invoice Extractor - Final Version
-# Supports: Flipkart, Amazon, Meesho, V-Mart, AceVector/Snapdeal, and any other platform
+# Universal Invoice Extractor - Final Production Version
+# Supports: Flipkart, Amazon, Meesho, V-Mart, Snapdeal/AceVector
 
 import re
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-# ============== SAC/HSN CODE TO DESCRIPTION MAPPING ==============
+# SAC Code to Description mapping
 SAC_DESCRIPTIONS = {
-    # Commission & Marketplace Fees
     "998365": "Commission/Marketplace Fee",
-    "996211": "Business & Production Services",
-    
-    # Logistics & Shipping
-    "996799": "Logistics/Shipping Fee",
+    "998599": "Fixed Closing Fee",
     "996812": "Courier/Delivery Service",
-    "996511": "Transportation Fee",
-    "997212": "Warehousing/Fulfillment",
-    
-    # Payment & Collection
-    "998599": "Payment/Collection Fee",
-    
-    # Advertising & Marketing
+    "996799": "Logistics/Shipping Fee",
     "998314": "Advertising Service",
+    "996211": "Business Services",
+    "997212": "Warehousing/Fulfillment",
+    "996729": "Support Services",
     "998313": "Marketing Service",
-    
-    # Other Services
-    "998361": "Business Support Service",
-    "998399": "Other Business Services",
 }
 
-# Platform-specific provider names
 PLATFORM_PROVIDERS = {
     "flipkart": "Flipkart Internet Private Limited",
     "amazon": "Amazon Seller Services Private Limited",
     "meesho": "Meesho Technologies Private Limited",
     "vmart": "V-Mart Retail Limited",
-    "acevector": "AceVector Limited",
     "snapdeal": "AceVector Limited",
 }
 
 
 def normalize_amount(amount_str: str) -> Optional[float]:
-    """Convert string amount to float, handling various formats."""
+    """Convert string amount to float."""
     if not amount_str:
         return None
     try:
-        # Remove currency symbols, commas, spaces
         cleaned = re.sub(r'[₹,\s]', '', str(amount_str))
         cleaned = cleaned.replace('INR', '').replace('Rs.', '').replace('Rs', '').strip()
         if cleaned:
@@ -56,18 +42,12 @@ def normalize_amount(amount_str: str) -> Optional[float]:
 
 
 def normalize_date(date_str: str) -> Optional[str]:
-    """Normalize date to dd/mm/yyyy format."""
+    """Normalize date to dd/mm/yyyy."""
     if not date_str:
         return None
     
     date_str = date_str.strip()
-    
-    formats = [
-        '%d-%m-%Y', '%d/%m/%Y', '%d.%m.%Y',
-        '%Y-%m-%d', '%Y/%m/%d',
-        '%d-%m-%y', '%d/%m/%y',
-        '%d %b %Y', '%d %B %Y',
-    ]
+    formats = ['%d-%m-%Y', '%d/%m/%Y', '%d.%m.%Y', '%Y-%m-%d', '%d-%m-%y', '%d/%m/%y']
     
     for fmt in formats:
         try:
@@ -75,28 +55,23 @@ def normalize_date(date_str: str) -> Optional[str]:
             return dt.strftime('%d/%m/%Y')
         except ValueError:
             continue
-    
     return date_str
 
 
 def detect_platform(text: str) -> str:
-    """Detect source platform from invoice text."""
+    """Detect invoice platform."""
     text_lower = text.lower()
     
-    # Check V-Mart first (specific company name)
     if "v-mart" in text_lower or "v mart" in text_lower or "vmart" in text_lower:
         return "VMart"
-    # Check Meesho
-    elif "meesho" in text_lower:
-        return "Meesho"
     elif "flipkart" in text_lower:
         return "Flipkart"
     elif "amazon seller services" in text_lower or "amazon.in" in text_lower:
         return "Amazon"
+    elif "meesho" in text_lower:
+        return "Meesho"
     elif "acevector" in text_lower or "snapdeal" in text_lower:
         return "Snapdeal"
-    elif "fashnear" in text_lower:
-        return "Fashnear"
     
     return "Unknown"
 
@@ -105,393 +80,335 @@ def extract_gstin(text: str) -> List[str]:
     """Extract all GSTINs from text."""
     pattern = r'\b(\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1})\b'
     matches = re.findall(pattern, text, re.IGNORECASE)
-    return list(dict.fromkeys([g.upper() for g in matches]))  # Remove duplicates, preserve order
+    return list(dict.fromkeys([g.upper() for g in matches]))
 
 
 def extract_invoice_number(text: str, platform: str) -> Optional[str]:
-    """Extract invoice number based on platform."""
-    
-    # Platform-specific patterns first (more reliable)
-    platform_patterns = {
-        'Flipkart': [
-            r'Credit\s*Note\s*#[:\s]*([A-Z0-9]+)',
-            r'Invoice\s*#[:\s]*([A-Z0-9]+)',
-            r'(FKCKA\d+)',
-            r'(FKRKA\d+)',
-            r'(ICNDL\d+)',
-        ],
-        'Amazon': [
-            r'Invoice\s*No[:\.\s]*([A-Z]{2}-\d+-\d+)',
-            r'(KA-\d+-\d+)',
-            r'(DL-\d+-\d+)',
-            r'([A-Z]{2}-\d{4}-\d+)',
-        ],
-        'Meesho': [
-            r'Invoice\s*No[:\.\s]*(TI/\d+/\d+/\d+)',
-            r'(TI/\d+/\d+/\d+)',
-        ],
-        'VMart': [
-            r'Invoice\s*No[:\.\s]*(COM/\d+/IN\d+)',
-            r'(COM/\d+/IN\d+)',
-        ],
-        'Snapdeal': [
-            r'Invoice\s*No[:\.\s]*(\d+[A-Z]+/IN/\d+)',
-            r'(\d+[A-Z]+/IN/\d+)',
-            r'Invoice\s*Number[:\s]*(\d+)',
-        ],
+    """Extract invoice number."""
+    patterns = {
+        'Flipkart': [r'(FKCKA\d+)', r'(FKRKA\d+)', r'(ICNDL\d+)', r'Credit\s*Note\s*#[:\s]*([A-Z0-9]+)', r'Invoice\s*#[:\s]*([A-Z0-9]+)'],
+        'Amazon': [r'Invoice\s*Number[:\s]*([A-Z]{2}-\d+-\d+)', r'(KA-\d+-\d+)', r'(DL-\d+-\d+)'],
+        'Meesho': [r'(TI/\d+/\d+/\d+)', r'Invoice\s*No[:\.\s]*(TI/[^\s]+)'],
+        'VMart': [r'(COM/\d+/IN\d+)', r'Invoice\s*No[:\.\s]*(COM/[^\s]+)'],
+        'Snapdeal': [r'(\d+[A-Z]+/IN/\d+)', r'Invoice\s*Number[:\s]*(\d+)'],
     }
     
-    # Try platform-specific patterns first
-    if platform in platform_patterns:
-        for pattern in platform_patterns[platform]:
+    if platform in patterns:
+        for pattern in patterns[platform]:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
-                inv_num = match.group(1).strip()
-                if len(inv_num) >= 4:
-                    return inv_num
+                return match.group(1).strip()
     
-    # Generic patterns
-    generic_patterns = [
-        r'(?:Invoice|Credit\s*Note)\s*(?:No\.?|Number|#)[:\s]*([A-Z0-9/\-]+)',
-        r'Document\s*(?:No\.?|Number)[:\s]*([A-Z0-9/\-]+)',
-    ]
-    
-    for pattern in generic_patterns:
+    # Generic fallback
+    generic = [r'Invoice\s*(?:No\.?|Number|#)[:\s]*([A-Z0-9/\-]+)']
+    for pattern in generic:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
-            inv_num = match.group(1).strip()
-            # Filter out common false matches
-            if inv_num.lower() not in ['date', 'details', 'tax', 'invoice'] and len(inv_num) >= 4:
-                return inv_num
+            inv = match.group(1).strip()
+            if inv.lower() not in ['date', 'details', 'tax'] and len(inv) >= 4:
+                return inv
     
     return None
 
 
 def extract_date(text: str) -> Optional[str]:
-    """Extract invoice/credit note date."""
+    """Extract invoice date."""
     patterns = [
-        r'(?:Credit\s*Note|Invoice|Document)\s*Date[:\s]*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',
-        r'Date[d]?[:\s]*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',
-        r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})',  # YYYY-MM-DD
-        r'(\d{1,2}[-/]\d{1,2}[-/]\d{4})',
+        r'Invoice\s*Date[:\s]*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',
+        r'Date[:\s]*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',
     ]
-    
     for pattern in patterns:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
             return normalize_date(match.group(1))
-    
     return None
 
 
-def extract_amounts_from_line(line: str) -> List[float]:
-    """Extract all amounts with 2 decimal places from a line."""
-    # Match amounts like 1234.56 or 1,234.56
-    pattern = r'(\d{1,3}(?:,\d{3})*\.?\d{0,2}|\d+\.\d{2})'
-    matches = re.findall(pattern, line)
-    amounts = []
-    for m in matches:
-        amt = normalize_amount(m)
-        if amt and amt > 0:
-            amounts.append(amt)
-    return amounts
+def extract_amazon_data(text: str) -> Dict[str, Any]:
+    """Extract data from Amazon invoice."""
+    # Amazon has clear "Subtotal of fees amount" format
+    fee_match = re.search(r'Subtotal\s+of\s+fees\s+amount[:\s]*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)', text, re.IGNORECASE)
+    igst_match = re.search(r'Subtotal\s+for\s+IGST[:\s]*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)', text, re.IGNORECASE)
+    cgst_match = re.search(r'Subtotal\s+for\s+CGST[:\s]*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)', text, re.IGNORECASE)
+    sgst_match = re.search(r'Subtotal\s+for\s+SGST[:\s]*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)', text, re.IGNORECASE)
+    total_match = re.search(r'Total\s+Invoice\s+amount[:\s]*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)', text, re.IGNORECASE)
+    
+    fee = normalize_amount(fee_match.group(1)) if fee_match else None
+    igst = normalize_amount(igst_match.group(1)) if igst_match else None
+    cgst = normalize_amount(cgst_match.group(1)) if cgst_match else None
+    sgst = normalize_amount(sgst_match.group(1)) if sgst_match else None
+    total = normalize_amount(total_match.group(1)) if total_match else None
+    
+    # Get description from line items
+    desc_match = re.search(r'998599[^\n]*(Fixed\s+Closing\s+Fee|Closing\s+Fee|Pick\s*&\s*Pack|Weight\s+Handling)', text, re.IGNORECASE)
+    description = desc_match.group(1).strip() if desc_match else "Fixed Closing Fee"
+    
+    sac_match = re.search(r'\b(998599|996812|998314)\b', text)
+    sac_code = sac_match.group(1) if sac_match else "998599"
+    
+    tax = igst if igst else ((cgst or 0) + (sgst or 0)) if (cgst or sgst) else None
+    
+    return {
+        'fee': fee,
+        'cgst': cgst,
+        'sgst': sgst,
+        'igst': igst,
+        'tax': tax,
+        'total': total,
+        'description': description,
+        'sac_code': sac_code
+    }
 
 
-def extract_line_items(text: str, platform: str) -> List[Dict[str, Any]]:
-    """Extract line items with descriptions and amounts."""
-    line_items = []
+def extract_flipkart_data(text: str) -> Dict[str, Any]:
+    """Extract data from Flipkart invoice."""
+    # Look for Total row: "Total 224684.89 40443.27 265128.16"
+    total_pattern = r'Total\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)'
+    total_match = re.search(total_pattern, text, re.IGNORECASE)
+    
+    if total_match:
+        fee = normalize_amount(total_match.group(1))
+        tax = normalize_amount(total_match.group(2))
+        total = normalize_amount(total_match.group(3))
+    else:
+        # Fallback: look for individual totals
+        fee_match = re.search(r'(?:Total|Subtotal)[:\s]*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)', text, re.IGNORECASE)
+        fee = normalize_amount(fee_match.group(1)) if fee_match else None
+        tax = None
+        total = fee
+    
+    # Find SAC codes
+    sac_codes = re.findall(r'\b(998599|996812|998365|996729)\b', text)
+    sac_code = sac_codes[0] if sac_codes else None
+    
+    return {
+        'fee': fee,
+        'tax': tax,
+        'total': total,
+        'sac_code': sac_code,
+        'description': SAC_DESCRIPTIONS.get(sac_code, "Service Fee") if sac_code else "Service Fee"
+    }
+
+
+def extract_meesho_vmart_data(text: str, platform: str) -> List[Dict[str, Any]]:
+    """Extract data from Meesho/V-Mart invoices."""
+    items = []
     lines = text.split('\n')
-    
-    # Track SAC codes we've already processed
     processed_sacs = set()
-    processed_descriptions = set()
     
-    # First pass: Look for SAC codes with amounts
     for line in lines:
         line_clean = line.strip()
-        if not line_clean or len(line_clean) < 5:
+        if not line_clean:
             continue
         
-        # Skip header/footer lines
-        skip_keywords = ['amount in words', 'bank', 'account', 'ifsc', 'pan:', 'cin:', 'gstin:',
-                         'signature', 'authorized', 'note:', 'disclaimer', 'terms', 'condition']
-        if any(kw in line_clean.lower() for kw in skip_keywords):
-            continue
-        
-        # Look for SAC/HSN code in line
-        sac_match = re.search(r'\b(99\d{4}|996\d{3}|997\d{3}|998\d{3})\b', line_clean)
-        
+        # Look for SAC code
+        sac_match = re.search(r'\b(99\d{4}|996\d{3})\b', line_clean)
         if sac_match:
             sac_code = sac_match.group(1)
-            
-            # Skip if already processed (avoid duplicates)
             if sac_code in processed_sacs:
                 continue
             
-            # Remove SAC code from line for amount extraction
-            line_without_sac = line_clean.replace(sac_code, ' ')
-            
-            # Get description from SAC mapping
-            description = SAC_DESCRIPTIONS.get(sac_code, f"Service ({sac_code})")
-            
-            # Extract amounts with 2 decimal places
-            amount_pattern = r'(\d{1,3}(?:,\d{3})*\.\d{2})'
-            found_amounts = re.findall(amount_pattern, line_without_sac)
-            amounts = [normalize_amount(a) for a in found_amounts if normalize_amount(a)]
-            
-            fee_amount = None
-            tax_amount = None
-            total_amount = None
+            # Extract amounts from line
+            amounts = re.findall(r'(\d{1,3}(?:,\d{3})*\.\d{2})', line_clean.replace(sac_code, ''))
+            amounts = [normalize_amount(a) for a in amounts if normalize_amount(a)]
             
             if amounts:
-                # Sort amounts
                 sorted_amounts = sorted(amounts)
-                
                 if len(sorted_amounts) >= 3:
-                    # Typical order: Fee, Tax, Total
-                    # Check if largest ≈ smallest + middle
-                    if abs(sorted_amounts[-1] - (sorted_amounts[0] + sorted_amounts[1])) < sorted_amounts[-1] * 0.02:
-                        fee_amount = sorted_amounts[0]
-                        tax_amount = sorted_amounts[1]
-                        total_amount = sorted_amounts[-1]
-                    else:
-                        fee_amount = sorted_amounts[0]
-                        tax_amount = sorted_amounts[-1] - sorted_amounts[0] if sorted_amounts[-1] > sorted_amounts[0] else None
-                        total_amount = sorted_amounts[-1]
+                    fee, tax, total = sorted_amounts[0], sorted_amounts[1], sorted_amounts[-1]
                 elif len(sorted_amounts) == 2:
-                    fee_amount = sorted_amounts[0]
-                    total_amount = sorted_amounts[1]
-                    if total_amount > fee_amount:
-                        tax_amount = round(total_amount - fee_amount, 2)
-                elif len(sorted_amounts) == 1:
-                    total_amount = sorted_amounts[0]
-                    # Assume 18% tax
-                    fee_amount = round(total_amount / 1.18, 2)
-                    tax_amount = round(total_amount - fee_amount, 2)
-            
-            if total_amount and total_amount > 0:
-                line_items.append({
-                    "category_code_or_hsn": sac_code,
-                    "service_description": description,
-                    "fee_amount": fee_amount,
-                    "cgst_amount": None,
-                    "sgst_amount": None,
-                    "igst_amount": tax_amount,
-                    "total_tax_amount": tax_amount,
-                    "total_amount": total_amount,
-                    "tax_rate_percent": 18.0
+                    fee, total = sorted_amounts[0], sorted_amounts[1]
+                    tax = round(total - fee, 2) if total > fee else None
+                else:
+                    total = sorted_amounts[0]
+                    fee = round(total / 1.18, 2)
+                    tax = round(total - fee, 2)
+                
+                items.append({
+                    'sac_code': sac_code,
+                    'description': SAC_DESCRIPTIONS.get(sac_code, f"Service ({sac_code})"),
+                    'fee': fee,
+                    'tax': tax,
+                    'total': total
                 })
                 processed_sacs.add(sac_code)
     
-    # Second pass: If no SAC-based items, try description-based extraction
-    if not line_items:
-        service_keywords = [
-            ('commission', 'Commission Fee'),
-            ('marketplace', 'Marketplace Fee'),
-            ('logistics', 'Logistics Fee'),
-            ('shipping', 'Shipping Fee'),
-            ('delivery', 'Delivery Fee'),
-            ('fixed fee', 'Fixed Fee'),
-            ('closing fee', 'Closing Fee'),
-            ('collection', 'Collection Fee'),
-            ('payment', 'Payment Gateway Fee'),
-            ('gateway fee', 'Payment Gateway Fee'),
-            ('advertisement', 'Advertisement Fee'),
-            ('monetization', 'Monetization Fee'),
-            ('marketing', 'Marketing Fee'),
-            ('fulfilment', 'Fulfillment Fee'),
-            ('fulfillment', 'Fulfillment Fee'),
-            ('support', 'Support Services Fee'),
-            ('pick fee', 'Pick & Pack Fee'),
-            ('pack fee', 'Pick & Pack Fee'),
-            ('weight handling', 'Weight Handling Fee'),
-            ('tech fee', 'Technology Fee'),
-        ]
-        
-        for line in lines:
-            line_lower = line.lower()
-            
-            # Skip total/subtotal lines
-            if 'total' in line_lower and not any(kw[0] in line_lower for kw in service_keywords):
-                continue
-            
-            for keyword, description in service_keywords:
-                if keyword in line_lower and description not in processed_descriptions:
-                    # Extract amounts
-                    amount_pattern = r'(\d{1,3}(?:,\d{3})*\.\d{2})'
-                    found_amounts = re.findall(amount_pattern, line)
-                    amounts = [normalize_amount(a) for a in found_amounts if normalize_amount(a) and normalize_amount(a) > 1]
-                    
-                    if amounts:
-                        sorted_amounts = sorted(amounts)
-                        total = sorted_amounts[-1]
-                        fee = sorted_amounts[0] if len(sorted_amounts) > 1 else round(total / 1.18, 2)
-                        tax = round(total - fee, 2) if total > fee else None
-                        
-                        line_items.append({
-                            "category_code_or_hsn": None,
-                            "service_description": description,
-                            "fee_amount": fee,
-                            "cgst_amount": None,
-                            "sgst_amount": None,
-                            "igst_amount": tax,
-                            "total_tax_amount": tax,
-                            "total_amount": total,
-                            "tax_rate_percent": 18.0
-                        })
-                        processed_descriptions.add(description)
-                        break
+    return items
+
+
+def extract_snapdeal_data(text: str) -> Dict[str, Any]:
+    """Extract data from Snapdeal/AceVector invoice."""
+    # Look for Monetization Fee pattern
+    fee_match = re.search(r'(?:Monetization|Commission)[^\d]*([\d,]+\.?\d*)', text, re.IGNORECASE)
+    total_match = re.search(r'Total[:\s]*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)', text, re.IGNORECASE)
     
-    return line_items
-
-
-def extract_totals(text: str) -> Dict[str, Optional[float]]:
-    """Extract total amounts from invoice."""
-    totals = {
-        'subtotal': None,
-        'cgst': None,
-        'sgst': None,
-        'igst': None,
-        'total_tax': None,
-        'grand_total': None
+    fee = normalize_amount(fee_match.group(1)) if fee_match else None
+    total = normalize_amount(total_match.group(1)) if total_match else None
+    
+    if total and not fee:
+        fee = round(total / 1.18, 2)
+    
+    tax = round(total - fee, 2) if total and fee and total > fee else None
+    
+    return {
+        'fee': fee,
+        'tax': tax,
+        'total': total,
+        'description': 'Monetization Fee',
+        'sac_code': None
     }
-    
-    patterns = {
-        'grand_total': [
-            r'Grand\s*Total[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)',
-            r'Total\s*(?:Invoice|Amount|Payable)[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)',
-            r'Total[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)',
-        ],
-        'subtotal': [
-            r'(?:Sub\s*)?Total\s*(?:Taxable|Fee)[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)',
-            r'Taxable\s*(?:Value|Amount)[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)',
-        ],
-        'igst': [
-            r'(?:Total\s*)?IGST[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)',
-            r'IGST\s*(?:Amount)?[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)',
-        ],
-        'cgst': [
-            r'(?:Total\s*)?CGST[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)',
-        ],
-        'sgst': [
-            r'(?:Total\s*)?SGST[:\s]*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)',
-        ],
-    }
-    
-    for key, pattern_list in patterns.items():
-        for pattern in pattern_list:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                amt = normalize_amount(match.group(1))
-                if amt and amt > 0:
-                    totals[key] = amt
-                    break
-    
-    # Calculate total_tax if not found
-    if not totals['total_tax']:
-        if totals['cgst'] and totals['sgst']:
-            totals['total_tax'] = totals['cgst'] + totals['sgst']
-        elif totals['igst']:
-            totals['total_tax'] = totals['igst']
-    
-    return totals
 
 
-def extract_names(text: str, platform: str) -> Dict[str, Optional[str]]:
-    """Extract provider and receiver names."""
-    names = {
-        'provider': PLATFORM_PROVIDERS.get(platform.lower()),
-        'receiver': None
-    }
-    
-    # Extract receiver name
-    receiver_patterns = [
-        r'(?:BILLED\s*TO|Bill\s*To|Ship\s*To)[:\s]*(?:Display\s*Name[:\s]*)?([A-Z][A-Za-z\s&]+?)(?:\n|Address|GSTIN)',
-        r'(?:Business\s*Name|Customer)[:\s]*([A-Z][A-Za-z\s&]+?)(?:\n|Address|GSTIN)',
-        r'Buyer[:\s]*([A-Z][A-Za-z\s&]+?)(?:\n|Address|GSTIN)',
+def extract_receiver_name(text: str, platform: str) -> Optional[str]:
+    """Extract receiver/buyer name."""
+    patterns = [
+        r'(?:Bill\s*to|Billed\s*To|Buyer)[:\s]*(?:Name[:\s]*)?([A-Z][A-Za-z\s]+?)(?:\n|Address|GSTIN)',
+        r'Display\s*Name[:\s]*([A-Z][A-Za-z\s]+?)(?:\n|Address)',
+        r'Business\s*Name[:\s]*([A-Z][A-Za-z\s]+?)(?:\n|Address)',
     ]
     
-    for pattern in receiver_patterns:
+    for pattern in patterns:
         match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
         if match:
-            names['receiver'] = match.group(1).strip()[:50]
-            break
-    
-    return names
+            name = match.group(1).strip()
+            if len(name) > 2 and len(name) < 50:
+                return name
+    return None
 
 
 def universal_extract(text: str, filename: str) -> Dict[str, Any]:
-    """
-    Universal invoice extractor that works with any platform.
+    """Main extraction function."""
     
-    Output columns:
-    - Invoice Number
-    - Invoice Date
-    - Service Provider
-    - Provider GSTIN
-    - Service Receiver
-    - Receiver GSTIN
-    - Category Code (SAC/HSN)
-    - Service Description
-    - Fee Amount (INR)
-    - CGST (INR)
-    - SGST (INR)
-    - IGST (INR)
-    - Total Tax (INR)
-    - Total Amount (INR)
-    """
-    
-    # Detect platform
     platform = detect_platform(text)
-    
-    # Extract GSTINs
     gstins = extract_gstin(text)
-    provider_gstin = gstins[0] if gstins else None
-    receiver_gstin = gstins[1] if len(gstins) > 1 else None
     
-    # Extract names
-    names = extract_names(text, platform)
-    
-    # Extract invoice details
-    invoice_number = extract_invoice_number(text, platform)
-    invoice_date = extract_date(text)
-    
-    # Determine document type
-    doc_type = "CreditNote" if "credit note" in text.lower() else "Invoice"
-    
-    # Extract line items
-    line_items = extract_line_items(text, platform)
-    
-    # Extract totals
-    totals = extract_totals(text)
-    
-    # Build result
     result = {
         "source_platform": platform,
-        "document_type": doc_type,
-        "invoice_number": invoice_number,
-        "invoice_date": invoice_date,
-        "service_provider_name": names['provider'],
-        "service_provider_gstin": provider_gstin,
-        "service_receiver_name": names['receiver'],
-        "service_receiver_gstin": receiver_gstin,
+        "document_type": "CreditNote" if "credit note" in text.lower() else "Invoice",
+        "invoice_number": extract_invoice_number(text, platform),
+        "invoice_date": extract_date(text),
+        "service_provider_name": PLATFORM_PROVIDERS.get(platform.lower()),
+        "service_provider_gstin": gstins[0] if gstins else None,
+        "service_receiver_name": extract_receiver_name(text, platform),
+        "service_receiver_gstin": gstins[1] if len(gstins) > 1 else None,
         "place_of_supply_state_code": None,
         "currency": "INR",
-        "subtotal_fee_amount": totals['subtotal'],
-        "cgst_amount": totals['cgst'],
-        "sgst_amount": totals['sgst'],
-        "igst_amount": totals['igst'],
-        "total_tax_amount": totals['total_tax'],
-        "total_invoice_amount": totals['grand_total'],
-        "line_items": line_items,
-        "_extraction_method": "universal_v2"
+        "subtotal_fee_amount": None,
+        "cgst_amount": None,
+        "sgst_amount": None,
+        "igst_amount": None,
+        "total_tax_amount": None,
+        "total_invoice_amount": None,
+        "line_items": [],
+        "_extraction_method": "universal_v3"
     }
     
-    # If no totals from patterns, calculate from line items
-    if not result['total_invoice_amount'] and line_items:
-        result['subtotal_fee_amount'] = sum(item.get('fee_amount') or 0 for item in line_items)
-        result['total_tax_amount'] = sum(item.get('total_tax_amount') or 0 for item in line_items)
-        result['total_invoice_amount'] = sum(item.get('total_amount') or 0 for item in line_items)
-        result['igst_amount'] = sum(item.get('igst_amount') or 0 for item in line_items)
+    # Platform-specific extraction
+    if platform == "Amazon":
+        data = extract_amazon_data(text)
+        result['subtotal_fee_amount'] = data['fee']
+        result['cgst_amount'] = data.get('cgst')
+        result['sgst_amount'] = data.get('sgst')
+        result['igst_amount'] = data.get('igst')
+        result['total_tax_amount'] = data['tax']
+        result['total_invoice_amount'] = data['total']
+        
+        if data['total']:
+            result['line_items'].append({
+                "category_code_or_hsn": data['sac_code'],
+                "service_description": data['description'],
+                "fee_amount": data['fee'],
+                "cgst_amount": data.get('cgst'),
+                "sgst_amount": data.get('sgst'),
+                "igst_amount": data.get('igst'),
+                "total_tax_amount": data['tax'],
+                "total_amount": data['total'],
+                "tax_rate_percent": 18.0
+            })
+    
+    elif platform == "Flipkart":
+        data = extract_flipkart_data(text)
+        result['subtotal_fee_amount'] = data['fee']
+        result['igst_amount'] = data['tax']
+        result['total_tax_amount'] = data['tax']
+        result['total_invoice_amount'] = data['total']
+        
+        if data['total']:
+            result['line_items'].append({
+                "category_code_or_hsn": data['sac_code'],
+                "service_description": data['description'],
+                "fee_amount": data['fee'],
+                "cgst_amount": None,
+                "sgst_amount": None,
+                "igst_amount": data['tax'],
+                "total_tax_amount": data['tax'],
+                "total_amount": data['total'],
+                "tax_rate_percent": 18.0
+            })
+    
+    elif platform in ["Meesho", "VMart"]:
+        items = extract_meesho_vmart_data(text, platform)
+        for item in items:
+            result['line_items'].append({
+                "category_code_or_hsn": item['sac_code'],
+                "service_description": item['description'],
+                "fee_amount": item['fee'],
+                "cgst_amount": None,
+                "sgst_amount": None,
+                "igst_amount": item['tax'],
+                "total_tax_amount": item['tax'],
+                "total_amount": item['total'],
+                "tax_rate_percent": 18.0
+            })
+        
+        if items:
+            result['subtotal_fee_amount'] = sum(i['fee'] or 0 for i in items)
+            result['igst_amount'] = sum(i['tax'] or 0 for i in items)
+            result['total_tax_amount'] = result['igst_amount']
+            result['total_invoice_amount'] = sum(i['total'] or 0 for i in items)
+    
+    elif platform == "Snapdeal":
+        data = extract_snapdeal_data(text)
+        result['subtotal_fee_amount'] = data['fee']
+        result['igst_amount'] = data['tax']
+        result['total_tax_amount'] = data['tax']
+        result['total_invoice_amount'] = data['total']
+        
+        if data['total']:
+            result['line_items'].append({
+                "category_code_or_hsn": data['sac_code'],
+                "service_description": data['description'],
+                "fee_amount": data['fee'],
+                "cgst_amount": None,
+                "sgst_amount": None,
+                "igst_amount": data['tax'],
+                "total_tax_amount": data['tax'],
+                "total_amount": data['total'],
+                "tax_rate_percent": 18.0
+            })
+    
+    else:
+        # Generic extraction for unknown platforms
+        total_match = re.search(r'(?:Grand\s*)?Total[:\s]*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)', text, re.IGNORECASE)
+        if total_match:
+            total = normalize_amount(total_match.group(1))
+            result['total_invoice_amount'] = total
+            if total:
+                fee = round(total / 1.18, 2)
+                tax = round(total - fee, 2)
+                result['subtotal_fee_amount'] = fee
+                result['igst_amount'] = tax
+                result['total_tax_amount'] = tax
+                result['line_items'].append({
+                    "category_code_or_hsn": None,
+                    "service_description": "Service Fee",
+                    "fee_amount": fee,
+                    "cgst_amount": None,
+                    "sgst_amount": None,
+                    "igst_amount": tax,
+                    "total_tax_amount": tax,
+                    "total_amount": total,
+                    "tax_rate_percent": 18.0
+                })
     
     return result
