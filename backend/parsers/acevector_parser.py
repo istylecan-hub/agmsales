@@ -116,35 +116,70 @@ class AceVectorParser(BaseParser):
         """Extract line items from AceVector invoice"""
         # AceVector format in Supply Details table:
         # Sl No | Description | HSN | QTY | Unit | Unit Price | Discount | Taxable | GST(%) | Other | Total
-        # 1 | Brand Monetization Fees | 998365 | OTH | 1 | 14273.70 | 0.00 | 14273.70 | 18 | 0.00 | 14273.70
+        # Note: Description might be split (e.g., "Brand" on one line, "Monetization Fees" on next)
         
-        # Pattern for table row
-        row_pattern = r'(\d+)\s+([A-Za-z\s]+(?:Fee|Fees|Service|Charge)?)\s+(\d{6})\s+\w+\s+\d+\s+([\d,]+\.?\d*)\s+[\d,]+\.?\d*\s+([\d,]+\.?\d*)\s+(\d+)\s+[\d,]+\.?\d*\s+([\d,]+\.?\d*)'
+        # Look for HSN/SAC codes
+        lines = self.text.split('\n')
         
-        matches = re.findall(row_pattern, self.text)
-        
-        for match in matches:
-            description = match[1].strip()
-            hsn_code = match[2]
-            unit_price = self.normalize_amount(match[3])
-            taxable = self.normalize_amount(match[4])
-            gst_rate = float(match[5])
-            total = self.normalize_amount(match[6])
+        for i, line in enumerate(lines):
+            # Look for 6-digit HSN/SAC code
+            hsn_match = re.search(r'(998\d{3}|\d{6})', line)
+            if not hsn_match:
+                continue
             
-            fee_amount = taxable or unit_price
+            hsn_code = hsn_match.group(1)
             
-            # Calculate IGST
-            igst_amount = round(fee_amount * gst_rate / 100, 2) if fee_amount and gst_rate else None
+            # Get all numbers from this line
+            numbers = re.findall(r'([\d,]+\.?\d*)', line.replace(hsn_code, ''))
+            numbers = [self.normalize_amount(n) for n in numbers if self.normalize_amount(n)]
+            numbers = [n for n in numbers if n is not None]
             
-            self.result.line_items.append(LineItem(
-                category_code_or_hsn=hsn_code,
-                service_description=description,
-                fee_amount=fee_amount,
-                igst_amount=igst_amount,
-                total_tax_amount=igst_amount,
-                total_amount=total or (fee_amount + igst_amount if fee_amount and igst_amount else None),
-                tax_rate_percent=gst_rate
-            ))
+            if not numbers:
+                continue
+            
+            # Get description (text before HSN)
+            desc = line[:hsn_match.start()].strip()
+            desc = re.sub(r'^\d+\s*', '', desc).strip()  # Remove leading number
+            
+            # Check next line for continuation of description
+            if i + 1 < len(lines):
+                next_line = lines[i + 1].strip()
+                if next_line and not re.search(r'^\d|Taxable|Total|Amount', next_line):
+                    # Might be continuation
+                    if not re.search(r'[\d,]+\.?\d{2}', next_line):  # No amounts
+                        desc = f"{desc} {next_line}".strip()
+            
+            # Expected format: [qty_or_something, unit_price, discount, taxable, rate, other, total]
+            # Or simpler: find taxable amount (should match unit price for single qty)
+            # GST rate is usually 18 for services
+            
+            # Look for the taxable amount pattern in totals row
+            gst_rate = 18.0
+            rate_match = re.search(r'(\d+)\s*%?', line)
+            if rate_match and rate_match.group(1) in ['9', '18', '28', '5', '12']:
+                gst_rate = float(rate_match.group(1))
+            
+            # Fee is usually the first significant amount
+            fee_amount = None
+            for n in numbers:
+                if n > 0:
+                    fee_amount = n
+                    break
+            
+            if fee_amount:
+                igst_amount = round(fee_amount * gst_rate / 100, 2)
+                total_amount = fee_amount + igst_amount
+                
+                self.result.line_items.append(LineItem(
+                    category_code_or_hsn=hsn_code,
+                    service_description=desc or "Monetization Fees",
+                    fee_amount=fee_amount,
+                    igst_amount=igst_amount,
+                    total_tax_amount=igst_amount,
+                    total_amount=total_amount,
+                    tax_rate_percent=gst_rate
+                ))
+                return  # Only one line item typically
         
         # If table parsing failed, try simpler extraction
         if not self.result.line_items:
@@ -152,22 +187,25 @@ class AceVectorParser(BaseParser):
 
     def _extract_simple(self):
         """Simple extraction fallback"""
-        # Look for Monetization Fee / Commission line
-        fee_match = re.search(r'(?:Monetization|Commission)\s*(?:Fee|Fees)?\s*[:\s]*([\d,]+\.?\d*)', 
-                             self.text, re.IGNORECASE)
-        hsn_match = re.search(r'(\d{6})', self.text)
+        # Look for taxable amount in totals row
+        taxable_match = re.search(r'Taxable\s+([\d,]+\.?\d*)', self.text, re.IGNORECASE)
+        igst_match = re.search(r'IGST\s+([\d,]+\.?\d*)', self.text, re.IGNORECASE)
+        hsn_match = re.search(r'(998\d{3})', self.text)
         
-        if fee_match:
-            fee_amount = self.normalize_amount(fee_match.group(1))
-            hsn_code = hsn_match.group(1) if hsn_match else "998365"
-            
-            igst_amount = round(fee_amount * 0.18, 2) if fee_amount else None
-            
-            self.result.line_items.append(LineItem(
-                category_code_or_hsn=hsn_code,
-                service_description="Brand Monetization Fees",
-                fee_amount=fee_amount,
-                igst_amount=igst_amount,
+        fee_amount = None
+        igst_amount = None
+        
+        if taxable_match:
+            fee_amount = self.normalize_amount(taxable_match.group(1))
+        
+        if igst_match:
+            igst_amount = self.normalize_amount(igst_match.group(1))
+        elif fee_amount:
+            igst_amount = round(fee_amount * 0.18, 2)
+        
+        hsn_code = hsn_match.group(1) if hsn_match else "998365"
+        
+        if fee_amount:
                 total_tax_amount=igst_amount,
                 total_amount=fee_amount + igst_amount if fee_amount and igst_amount else None,
                 tax_rate_percent=18.0
