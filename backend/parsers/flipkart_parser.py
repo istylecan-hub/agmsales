@@ -44,26 +44,33 @@ class FlipkartParser(BaseParser):
 
     def _extract_invoice_number(self):
         """Extract Flipkart invoice/credit note number"""
-        patterns = [
-            r'Credit\s*Note\s*#[:\s]*([A-Z0-9]+)',
-            r'Invoice\s*#[:\s]*([A-Z0-9]+)',
+        # Direct pattern matching for Flipkart-specific formats (most reliable)
+        direct_patterns = [
             r'(FKCKA\d+)',  # Credit note format
             r'(FKRKA\d+)',  # Tax invoice format
             r'(ICNDL\d+)',  # Commercial credit note format
         ]
         
-        # For credit notes, prioritize Credit Note # over Original Invoice #
-        if "credit note" in self.text.lower():
-            credit_match = re.search(r'Credit\s*Note\s*#[:\s]*([A-Z0-9]+)', self.text, re.IGNORECASE)
-            if credit_match:
-                self.result.invoice_number = credit_match.group(1).strip()
-                return
-        
-        for pattern in patterns:
-            match = re.search(pattern, self.text, re.IGNORECASE)
+        for pattern in direct_patterns:
+            match = re.search(pattern, self.text)
             if match:
                 self.result.invoice_number = match.group(1).strip()
                 return
+        
+        # Fallback to labeled patterns
+        labeled_patterns = [
+            r'Credit\s*Note\s*#:\s*\n?\s*([A-Z0-9]+)',
+            r'Invoice\s*#:\s*\n?\s*([A-Z0-9]+)',
+        ]
+        
+        for pattern in labeled_patterns:
+            match = re.search(pattern, self.text, re.IGNORECASE)
+            if match:
+                inv_num = match.group(1).strip()
+                # Validate it's not a field name
+                if inv_num.upper() not in ['BUSINESS', 'NAME', 'ADDRESS', 'DATE']:
+                    self.result.invoice_number = inv_num
+                    return
 
     def _extract_date(self):
         """Extract invoice date"""
