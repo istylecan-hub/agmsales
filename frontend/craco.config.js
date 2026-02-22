@@ -67,6 +67,14 @@ const webpackConfig = {
             '**/public/**',
         ],
       };
+      
+      // Disable React Refresh for preview URLs (non-localhost)
+      // This prevents "React Refresh runtime should not be included in production bundle" error
+      if (webpackConfig.plugins) {
+        webpackConfig.plugins = webpackConfig.plugins.filter(
+          plugin => plugin.constructor.name !== 'ReactRefreshPlugin'
+        );
+      }
 
       // Add health check plugin to webpack if enabled
       if (config.enableHealthCheck && healthPluginInstance) {
