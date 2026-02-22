@@ -137,38 +137,91 @@ class FlipkartParser(BaseParser):
         # Flipkart format: SAC Description Net_Value Rate IGST_Amount Total
         # Example: 998599 Collection Fee 34.46 18.0 6.20 40.66
         
-        # Pattern for single-line items
-        single_line_pattern = r'(\d{6})\s+([A-Za-z\s\-]+(?:Fee|Recovery)?)\s+([\d,]+\.?\d*)\s+(\d+\.?\d*)\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)'
+        # Line-by-line parsing for better accuracy
+        lines = self.text.split('\n')
+        sac_items = []
         
-        # Pattern for multi-line items (description spans two lines)
-        multi_line_pattern = r'(\d{6})\s+([A-Za-z][A-Za-z\s\-]+)\s*\n?\s*([A-Za-z][A-Za-z\s]*)?\s+([\d,]+\.?\d*)\s+(\d+\.?\d*)\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)'
-        
-        # Try single-line pattern first
-        matches = re.findall(single_line_pattern, self.text)
-        
-        if matches:
-            for match in matches:
-                sac_code = match[0]
-                description = match[1].strip()
-                fee_amount = self.normalize_amount(match[2])
-                tax_rate = self.normalize_amount(match[3])
-                igst_amount = self.normalize_amount(match[4])
-                total_amount = self.normalize_amount(match[5])
+        for i, line in enumerate(lines):
+            line = line.strip()
+            
+            # Look for lines starting with SAC code (6 digits)
+            sac_match = re.match(r'^(\d{6})\s+(.+)', line)
+            if sac_match:
+                sac_code = sac_match.group(1)
+                rest = sac_match.group(2).strip()
                 
-                if fee_amount and fee_amount > 0:
-                    self.result.line_items.append(LineItem(
-                        category_code_or_hsn=sac_code,
-                        service_description=description or self.get_sac_description(sac_code),
-                        fee_amount=fee_amount,
-                        igst_amount=igst_amount,
-                        total_tax_amount=igst_amount,
-                        total_amount=total_amount,
-                        tax_rate_percent=tax_rate
-                    ))
+                # Parse rest of line: Description + numbers
+                # May have description split across this line and next
+                
+                # Get all numbers from rest
+                numbers = re.findall(r'([\d,]+\.?\d*)', rest)
+                numbers = [self.normalize_amount(n) for n in numbers if self.normalize_amount(n)]
+                
+                # Text part (description)
+                text_part = re.sub(r'[\d,\.]+', '', rest).strip()
+                
+                # If description seems incomplete, check next line
+                if i + 1 < len(lines):
+                    next_line = lines[i + 1].strip()
+                    # If next line is continuation (no SAC, no Total)
+                    if not re.match(r'^(\d{6}|Total)\s', next_line):
+                        next_text = re.sub(r'[\d,\.]+', '', next_line).strip()
+                        next_numbers = re.findall(r'([\d,]+\.?\d*)', next_line)
+                        next_numbers = [self.normalize_amount(n) for n in next_numbers if self.normalize_amount(n)]
+                        
+                        if next_text and not next_numbers:
+                            text_part = f"{text_part} {next_text}".strip()
+                        elif next_numbers:
+                            numbers.extend(next_numbers)
+                            if next_text:
+                                text_part = f"{text_part} {next_text}".strip()
+                
+                # Expected format: fee, rate, tax, total (4 numbers)
+                if len(numbers) >= 4:
+                    fee = numbers[0]
+                    rate = numbers[1]
+                    tax = numbers[2]
+                    total = numbers[3]
+                elif len(numbers) == 3:
+                    fee = numbers[0]
+                    rate = 18.0
+                    tax = numbers[1]
+                    total = numbers[2]
+                elif len(numbers) == 2:
+                    fee = numbers[0]
+                    total = numbers[1]
+                    tax = total - fee if total > fee else round(fee * 0.18, 2)
+                    rate = 18.0
+                else:
+                    continue
+                
+                sac_items.append({
+                    'sac': sac_code,
+                    'desc': text_part,
+                    'fee': fee,
+                    'rate': rate,
+                    'tax': tax,
+                    'total': total
+                })
+        
+        # Add all found items
+        for item in sac_items:
+            self.result.line_items.append(LineItem(
+                category_code_or_hsn=item['sac'],
+                service_description=item['desc'] or self.get_sac_description(item['sac']),
+                fee_amount=item['fee'],
+                igst_amount=item['tax'],
+                total_tax_amount=item['tax'],
+                total_amount=item['total'],
+                tax_rate_percent=item['rate']
+            ))
+        
+        if self.result.line_items:
             return
         
-        # Try multi-line pattern
-        matches = re.findall(multi_line_pattern, self.text, re.MULTILINE)
+        # Fallback: Try regex patterns
+        single_line_pattern = r'(\d{6})\s+([A-Za-z\s\-]+(?:Fee|Recovery)?)\s+([\d,]+\.?\d*)\s+(\d+\.?\d*)\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)'
+        matches = re.findall(single_line_pattern, self.text)
         if matches:
             for match in matches:
                 sac_code = match[0]
