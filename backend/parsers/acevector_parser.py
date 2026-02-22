@@ -206,6 +206,11 @@ class AceVectorParser(BaseParser):
         hsn_code = hsn_match.group(1) if hsn_match else "998365"
         
         if fee_amount:
+            self.result.line_items.append(LineItem(
+                category_code_or_hsn=hsn_code,
+                service_description="Brand Monetization Fees",
+                fee_amount=fee_amount,
+                igst_amount=igst_amount,
                 total_tax_amount=igst_amount,
                 total_amount=fee_amount + igst_amount if fee_amount and igst_amount else None,
                 tax_rate_percent=18.0
