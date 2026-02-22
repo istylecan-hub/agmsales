@@ -106,11 +106,9 @@ class MeeshoParser(BaseParser):
 
     def _extract_line_items(self):
         """Extract line items from Meesho invoice"""
-        # Meesho format is table with:
-        # S.No | Item | HSN | Taxable Value | SGST | CGST | IGST | Total
-        
-        # Pattern: number, description, SAC, amounts
-        # Example: 1 Advertisement Fees for the month of January-2026 998365 32301.28 0 0 5814.23 @ 18% 38115.51
+        # Meesho format is table with columns:
+        # S.No | Item | HSN | Taxable Value | SGST (Rs.) | CGST (Rs.) | IGST (Rs.) | Total (Rs.)
+        # Example row: 1 Advertisement Fees... 998365 32301.28 0 @ 0% 0 @ 0% 5814.23 @ 18% 38115.51
         
         lines = self.text.split('\n')
         processed = set()
@@ -118,7 +116,7 @@ class MeeshoParser(BaseParser):
         for i, line in enumerate(lines):
             line_clean = line.strip()
             
-            # Look for SAC code followed by amounts
+            # Look for SAC code (6 digits starting with 99 or 996)
             sac_match = re.search(r'(99\d{4}|996\d{3})', line_clean)
             if not sac_match:
                 continue
@@ -129,35 +127,89 @@ class MeeshoParser(BaseParser):
             
             # Extract description (text before SAC)
             desc_part = line_clean[:sac_match.start()].strip()
-            # Clean up description - remove leading number
-            desc_part = re.sub(r'^\d+\s*', '', desc_part).strip()
+            desc_part = re.sub(r'^\d+\s*', '', desc_part).strip()  # Remove leading number
             
-            # Extract amounts after SAC
+            # Extract all numbers from line (including after SAC)
             amount_part = line_clean[sac_match.end():]
-            amounts = re.findall(r'([\d,]+\.?\d*)', amount_part)
-            amounts = [self.normalize_amount(a) for a in amounts if self.normalize_amount(a) is not None]
             
-            # Also check next line for amounts (multi-line entries)
-            if i + 1 < len(lines):
-                next_line = lines[i + 1].strip()
-                if not re.search(r'(99\d{4}|996\d{3})', next_line):  # Not a new item
-                    more_amounts = re.findall(r'([\d,]+\.?\d*)', next_line)
-                    amounts.extend([self.normalize_amount(a) for a in more_amounts if self.normalize_amount(a) is not None])
+            # Parse amounts with their @ rate markers
+            # Pattern: amount @ rate% or just amount
+            all_amounts = []
             
-            if not amounts:
+            # Find patterns like "5814.23 @ 18%" or just "32301.28"
+            amount_pattern = r'([\d,]+\.?\d*)\s*(?:@\s*\d+%)?'
+            for m in re.finditer(amount_pattern, amount_part):
+                val = self.normalize_amount(m.group(1))
+                if val is not None and val >= 0:
+                    all_amounts.append(val)
+            
+            if not all_amounts:
                 continue
             
-            # Meesho format: Taxable, SGST, CGST, IGST, Total
-            # Usually: fee, 0, 0, igst (18%), total
-            fee_amount = amounts[0] if amounts else None
-            sgst_amount = amounts[1] if len(amounts) > 1 else None
-            cgst_amount = amounts[2] if len(amounts) > 2 else None
+            # Meesho table format: Taxable | SGST | CGST | IGST | Total
+            # Typical values: [32301.28, 0, 0, 5814.23, 38115.51]
+            # The IGST is usually calculated as Taxable * 18%
             
-            # Find IGST - usually the one with @ 18% marker or before Total
+            fee_amount = all_amounts[0] if all_amounts else None
+            total_amount = all_amounts[-1] if len(all_amounts) > 1 else None
+            
+            # For inter-state (IGST): typically values are fee, 0, 0, igst, total
+            # IGST should be ~18% of fee
             igst_amount = None
-            total_amount = None
+            cgst_amount = None
+            sgst_amount = None
             
-            # Look for IGST pattern with @ 18%
+            if fee_amount and total_amount and len(all_amounts) >= 3:
+                expected_igst = round(fee_amount * 0.18, 2)
+                
+                # Find the IGST value (should be close to 18% of fee)
+                for amt in all_amounts[1:-1]:  # Skip first (fee) and last (total)
+                    if amt > 0 and abs(amt - expected_igst) < expected_igst * 0.05:  # Within 5%
+                        igst_amount = amt
+                        break
+                
+                # If not found by matching, check if we have the pattern fee, 0, 0, igst, total
+                if not igst_amount and len(all_amounts) >= 5:
+                    # [fee, sgst, cgst, igst, total]
+                    if all_amounts[1] == 0 and all_amounts[2] == 0:
+                        igst_amount = all_amounts[3]
+                    elif all_amounts[1] > 0 and all_amounts[2] > 0:
+                        # CGST/SGST case
+                        cgst_amount = all_amounts[1]
+                        sgst_amount = all_amounts[2]
+            
+            # Calculate tax if not found
+            if not igst_amount and not cgst_amount and fee_amount and total_amount:
+                if total_amount > fee_amount:
+                    igst_amount = round(total_amount - fee_amount, 2)
+                else:
+                    igst_amount = round(fee_amount * 0.18, 2)
+            
+            total_tax = igst_amount if igst_amount else ((cgst_amount or 0) + (sgst_amount or 0))
+            
+            # Validate and recalculate total if needed
+            if fee_amount and total_tax:
+                calculated_total = fee_amount + total_tax
+                if total_amount and abs(total_amount - calculated_total) > 1:
+                    # Use calculated if significantly different
+                    pass  # Keep extracted total
+                elif not total_amount:
+                    total_amount = calculated_total
+            
+            description = desc_part if desc_part else self.get_sac_description(sac_code)
+            
+            self.result.line_items.append(LineItem(
+                category_code_or_hsn=sac_code,
+                service_description=description,
+                fee_amount=fee_amount,
+                cgst_amount=cgst_amount,
+                sgst_amount=sgst_amount,
+                igst_amount=igst_amount,
+                total_tax_amount=total_tax,
+                total_amount=total_amount,
+                tax_rate_percent=18.0
+            ))
+            processed.add(sac_code)
             igst_match = re.search(r'([\d,]+\.?\d*)\s*@\s*18%', amount_part)
             if igst_match:
                 igst_amount = self.normalize_amount(igst_match.group(1))
