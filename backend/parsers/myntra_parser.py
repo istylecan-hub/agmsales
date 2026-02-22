@@ -2,7 +2,6 @@
 # Handles: Myntra Designs Tax Invoice format
 
 import re
-from typing import Optional, List
 from .base_parser import BaseParser, NormalizedInvoice, LineItem
 
 

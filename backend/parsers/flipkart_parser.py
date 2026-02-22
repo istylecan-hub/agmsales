@@ -2,7 +2,6 @@
 # Handles: Flipkart Tax Invoice, Credit Note, and Commercial Credit Note
 
 import re
-from typing import Optional, List
 from .base_parser import BaseParser, NormalizedInvoice, LineItem
 
 

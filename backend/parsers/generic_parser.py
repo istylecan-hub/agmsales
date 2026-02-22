@@ -2,7 +2,6 @@
 # Fallback parser for unknown invoice formats
 
 import re
-from typing import Optional, List
 from .base_parser import BaseParser, NormalizedInvoice, LineItem
 
 

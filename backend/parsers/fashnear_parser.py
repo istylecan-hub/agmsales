@@ -2,7 +2,6 @@
 # Handles: Fashnear Technologies Tax Invoice and Credit Note formats
 
 import re
-from typing import Optional, List
 from .base_parser import BaseParser, NormalizedInvoice, LineItem
 
 
