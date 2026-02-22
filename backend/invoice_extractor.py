@@ -825,29 +825,8 @@ def extract_totals_universal(text: str) -> Dict[str, float]:
 def extract_with_regex(text: str, filename: str) -> Dict[str, Any]:
     """Universal extraction using smart regex patterns - works with any invoice format."""
     
-    # Detect platform first
-    platform = detect_platform(text)
-    
-    # Use specialized extractors for known platforms
-    if platform == "Flipkart":
-        return extract_flipkart_invoice(text, filename)
-    elif platform == "Meesho":
-        return extract_meesho_invoice(text, filename)
-    
-    data = {
-        "source_platform": platform,
-        "document_type": "CreditNote" if "credit note" in text.lower() else "Invoice",
-        "invoice_number": None,
-        "invoice_date": None,
-        "service_provider_name": None,
-        "service_provider_gstin": None,
-        "service_receiver_name": None,
-        "service_receiver_gstin": None,
-        "place_of_supply_state_code": None,
-        "currency": "INR",
-        "subtotal_fee_amount": None,
-        "cgst_amount": None,
-        "sgst_amount": None,
+    # Use the new universal extractor for all platforms
+    return universal_extract(text, filename)
         "igst_amount": None,
         "total_tax_amount": None,
         "total_invoice_amount": None,
