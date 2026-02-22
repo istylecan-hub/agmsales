@@ -1,81 +1,83 @@
 <analysis>**original_problem_statement:**
-The user initially requested a Salary Calculator web application for their garment manufacturing company, AGM Sales. The core requirements included Employee Master management (CRUD), attendance processing from a specific Excel format, configurable salary calculation logic, and report generation (Excel/PDF).
+The user initially requested a Salary Calculator application. This was later merged with an Invoice Data Extractor application. The core requirements are:
+1.  **Salary Calculator Module**: Manage employees, process attendance from Excel, calculate salaries based on configurable rules, and view reports. A new requirement was added to save salary history monthly.
+2.  **Invoice Extractor Module**: Upload PDF invoices (from platforms like Amazon, Flipkart, Meesho, etc.), extract key data (Invoice #, date, GSTINs, line items, amounts), and export to Excel. This extractor should be robust and work for any invoice format without relying on an LLM to save costs.
 
-Subsequently, the user requested to merge a second application, an Invoice Data Extractor (from a project named docxtractor-2), into the Salary Calculator app. This new module should allow uploading PDF invoices, extracting data using AI, and exporting the results to CSV/Excel.
-
-The most recent user requests are:
-1.  **Fix a critical bug where Employee Master data was not persisting.** The user was forced to re-upload employee data in every session.
-2.  **Fix a bug in the Invoice Extractor** where it fails to correctly parse invoices from Flipkart.
-
-**PRODUCT REQUIREMENTS:**
-- **Salary Calculator Module:**
-    - Full CRUD for employee data, now persisting in a MongoDB database.
-    - Process attendance from Excel, deriving all calculations (Present, Absent, OT) from IN/OUT times.
-    - A configuration page for salary rules (OT, sandwich rule, short hours).
-    - A report page to view calculated salaries and download reports/salary slips.
-- **Invoice Extractor Module:**
-    - A separate page/section in the app.
-    - Drag-and-drop UI to upload multiple PDF invoices.
-    - Use an LLM (GPT-5.2) to extract key data (Invoice #, date, GSTINs, line items, amounts).
-    - Provide a regex-based fallback for extraction.
-    - Display extracted data in the UI.
-    - Export all extracted data to formatted CSV and Excel files.
-    - **Must work reliably for Amazon, Meesho, and Flipkart invoices.**
+The user has expressed significant frustration due to recurring bugs, high credit usage, and deployment failures. The primary issues are a non-functional Invoice Extractor and CORS errors blocking the live production application.
 
 **User's preferred language**: The user communicates in a mix of English and Hindi (Hinglish). The next agent **MUST** continue to respond in Hinglish to maintain user comfort and clarity.
 
 **what currently exists?**
-A full-stack application with a React frontend and a FastAPI backend connected to MongoDB. The application now contains two primary, integrated modules:
-1.  **Salary Calculator**: Functionality is largely complete. A critical bug preventing employee data from persisting has been fixed by adding backend APIs and a MongoDB collection for employees.
-2.  **Invoice Extractor**: This module has been successfully merged from another project. It has its own backend logic, API endpoints, and a dedicated frontend page. It works for Amazon and Meesho invoices but fails on Flipkart invoices.
+A full-stack application using React, FastAPI, and MongoDB.
+-   **Salary Calculator**: Fully featured, including employee management (persisted in MongoDB) and a newly added Salary History feature (saving/viewing monthly salary records).
+-   **Invoice Extractor**: This module has been refactored multiple times. It currently uses a regex-only Universal Extractor () intended to work across all platforms. However, it is currently failing to extract data correctly for many invoices provided by the user.
+-   **Deployment Issues**: The application is plagued by CORS errors on the production deployment, rendering all backend-dependent features (including all recent fixes and new features) unusable on the live site.
 
 **Last working item**:
--   **Last item agent was working**: Debugging the Invoice Extractor's failure to parse Flipkart invoices. The user provided four sample PDF invoices and an Excel file showing the incorrect extracted data. The agent began analyzing the files to understand the structural differences in Flipkart invoices and why the current extraction logic (LLM prompt and regex) is failing.
+-   **Last item agent was working**: The user, frustrated with the invoice extractor's persistent failures, asked for a complete breakdown of its workflow and code. The agent began this explanation, starting with the flow diagram and the code for .
 -   **Status**: IN PROGRESS
--   **Agent Testing Done**: N
--   **Which testing method agent to use?**: backend testing agent (to test the updated extraction logic on the sample PDFs).
--   **User Testing Done**: N
+-   **Agent Testing Done**: N (Agent's local tests passed, but user's real-world test failed).
+-   **Which testing method agent to use?**: backend testing agent. The agent must create a comprehensive test suite that uses all the sample PDFs provided by the user to validate the  and the final Excel output.
+-   **User Testing Done**: Y (User tested and reported failure, providing the incorrect Excel output ).
 
 **All Pending/In progress Issue list**:
--   **Issue 1**: Fix Flipkart invoice data extraction (Priority: P0)
--   **Issue 2**: The implemented Employee Master persistence fix needs to be deployed to the live production environment. (Priority: P1)
--   **Issue 3**: Low-priority UI glitch: navigation visibility concern from an early test report. (Priority: P2)
+-   **Issue 1**: The Universal Invoice Extractor is not working correctly (Priority: P0 - CRITICAL BLOCKER)
+-   **Issue 2**: Production deployment is broken due to persistent CORS errors (Priority: P0 - CRITICAL BLOCKER)
+-   **Issue 3**: Low-priority UI glitch: navigation visibility concern (Priority: P2)
 
 **Issues Detail**:
--   **Issue 1: Fix Flipkart invoice data extraction**
-    -   **Description**: The data extraction logic in  is not tuned for Flipkart's invoice layout. Key fields like Invoice Number, GSTINs, service provider/receiver details, and line-item amounts are being missed or incorrectly extracted.
-    -   **Attempted fixes**: The agent has analyzed one of the provided PDFs and confirmed the issue. No code has been modified yet.
+-   **Issue 1: Universal Invoice Extractor is failing**
+    -   **Description**: The core feature of the application is broken. The  script fails to correctly parse various invoice formats. The user-provided Excel output () shows that for many invoices, key fields like Fee Amount, Tax, and Total Amount are empty, and some rows contain garbage data.
+    -   **Attempted fixes**: The agent refactored the logic multiple times, moving from an LLM-based approach to platform-specific regex, and finally to a single universal regex file. Each attempt has failed to be robust enough.
     -   **Next debug checklist**:
-        1.  Analyze the user-provided  to see the exact incorrect output for all 4 sample files.
-        2.  Analyze the structure of the remaining 3 Flipkart PDF artifacts to identify consistent patterns for the required data fields.
-        3.  Update the LLM system prompt in the  function within  to specifically guide it on parsing the Flipkart layout.
-        4.  Enhance the  function in the same file with new regex patterns tailored for Flipkart as a robust fallback.
-        5.  Test the fix by running the extraction on the 4 sample PDFs provided by the user.
-    -   **Why fix this issue and what will be achieved with the fix?**: This is a core requirement for the Invoice Extractor. Fixing it will make the feature functional and valuable to the user.
+        1.  First, fulfill the user's request: continue the code walkthrough for the invoice extractor (, ).
+        2.  After the walkthrough, perform a root cause analysis on why the  is failing. Use all 5 sample PDFs provided by the user in chat message #332 for debugging.
+        3.  Systematically rewrite or refactor the regex patterns in  to be more accurate, especially for extracting line items and numerical amounts (Fee, Tax, Total).
+        4.  Verify and fix the Excel generation logic in  to ensure it correctly handles the data structure returned by the extractor.
+        5.  Create a local test script to run the end-to-end process and validate the output for all sample invoices.
+    -   **Why fix this issue and what will be achieved with the fix?**: This is the main reason for user frustration and credit expenditure. Fixing it will make the application's primary new feature functional.
     -   **Status**: IN PROGRESS
-    -   **Is recurring issue?**: N
+    -   **Is recurring issue?**: Y
+    -   **Should Test frontend/backend/both after fix?**: backend
+
+-   **Issue 2: Production CORS Error**
+    -   **Description**: The deployed frontend () cannot communicate with the backend. The browser console shows  for all API calls. This makes the live application unusable.
+    -   **Attempted fixes**: The agent correctly identified that the  in  was being added too late. The fix was to move it to the top, before any routes were registered. However, the user reported the issue persists post-deployment.
+    -   **Next debug checklist**:
+        1.  Re-examine  to confirm the  is the very first middleware added to the FastAPI app instance.
+        2.  The logs also showed a . Investigate the frontend  blocks in API calls (e.g., in  and ) to handle failed  responses more gracefully.
+        3.  Ensure no other proxy or server configuration is overriding the CORS headers.
+    -   **Why fix this issue and what will be achieved with the fix?**: This is a critical blocker. Without this fix, none of the implemented features or bug fixes are accessible to the user on their production URL.
+    -   **Status**: IN PROGRESS
+    -   **Is recurring issue?**: Y
     -   **Should Test frontend/backend/both after fix?**: backend
 
 **In progress Task List**:
--   None, the work is captured in the issue list.
+-   **Task 1: Provide Code Walkthrough for Invoice Extractor**
+    -   **Where to resume**: The previous agent was providing the code for . Continue from there, then explain the related parts of  and .
+    -   **What will be achieved with this?**: Fulfills a direct user request and helps build trust by being transparent.
+    -   **Status**: IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?**: N/A
+    -   **Blocked on something**: None.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks**:
-    -   **Re-deploy the application (P0)**: After the Flipkart invoice issue is resolved, the application must be re-deployed to push both the invoice fix and the critical employee persistence fix to the live environment.
+    -   **Re-deploy the application (P0)**: MUST be done after both the Invoice Extractor and CORS issues are confirmed to be fixed.
 -   **Future Tasks**:
-    -   **Add Regex Only Mode to Invoice Extractor (P1)**: Implement a UI toggle to allow the user to run the invoice extractor using only the regex fallback. This will function as a no-cost mode, saving LLM credits when high accuracy is not required.
+    -   **Add Regex Only Mode UI Toggle (P1)**: The app is already regex-only, but this was a planned feature. Can be repurposed or marked complete.
+    -   **Address low-priority UI glitch (P2)**: Fix the navigation visibility concern.
 
 **Completed work in this session**
--   **Invoice Extractor Integration**: Successfully merged the entire docxtractor-2 application (frontend and backend) into the main Salary Calculator app. This included creating new backend routes, frontend pages, and navigation links.
--   **Employee Data Persistence (Critical Bug Fix)**: Resolved the user's biggest pain point by implementing a full backend solution for the Employee Master.
-    -   Created FastAPI endpoints for CRUD operations on employees ().
-    -   Connected the backend to a MongoDB database to permanently store employee data.
-    -   Modified the frontend React context () to sync employee data with the backend, ensuring data persists across sessions and browsers.
+-   **Flipkart Invoice Extraction Fix**: Addressed issues specific to Flipkart invoice formats.
+-   **Salary History Feature**: Implemented a complete feature for saving, viewing, comparing, and tracking monthly salary data, including backend APIs and frontend modals.
+-   **Universal Invoice Extractor Refactor**: Attempted to build a single, robust, regex-based extractor to handle all invoice platforms (this is the part that is currently failing).
+-   **CORS and Deployment Debugging**: Made several attempts to fix CORS errors and deployment blockers.
+-   **UI Warning Fix**: Resolved  accessibility warnings in React components.
 
 **Earlier issues found/mentioned but not fixed**
--   **Issue 1**: A low-priority navigation visibility concern was noted in an early test report () but was never addressed.
-    -   **Debug checklist**: Review the test report and inspect  and related CSS.
-    -   **Why to solve this issue and what will be achieved with this?**: To improve overall UI polish and user experience.
+-   **Issue 1**: A low-priority navigation visibility concern noted in .
+    -   **Debug checklist**: Review the test report and inspect .
+    -   **Why to solve this issue and what will be achieved with this?**: To improve UI polish.
     -   **Should Test frontend/backend/both after fix**: frontend
     -   **Is recurring issue?**: N
 
@@ -88,70 +90,70 @@ A full-stack application with a React frontend and a FastAPI backend connected t
 **Key Technical Concepts**
 -   **Frontend**: React, Tailwind CSS, Shadcn/UI
 -   **Backend**: FastAPI, Python
--   **Database**: MongoDB (using  for async operations)
--   **State Management**: React Context API
--   **AI Integration**:  library for OpenAI GPT-5.2 calls.
--   **File Handling**:  and  for PDF text/OCR extraction,  for Excel generation.
+-   **Database**: MongoDB (using )
+-   **Core Logic**: A complex, multi-platform, regex-based parsing engine in .
 
 **key DB schema**
--   ** collection**: 
--   ** collection**: 
--   ** collection**: 
+-   ****: Stores employee master data.
+-   ****: Tracks invoice processing job status.
+-   ****: Stores data for each file within a job, including extracted data.
+-   ****: New collection to store monthly salary records for each employee.
 
 **All files of reference**
--   : **(Primary file for the current task)** Contains the LLM prompt and regex logic that needs to be fixed.
--   : Main backend file, recently modified to add Employee CRUD routes.
--   : Frontend state logic, recently modified to sync with the MongoDB backend.
--   : The UI for the module with the bug.
--   **User-provided artifacts**:
-    -   
-    -   
-    -   
-    -   
-    -   
+-   : **(Primary file for invoice bug)**
+-   : **(Handles file processing and export)**
+-   : **(Location of the CORS bug)**
+-   **User-provided failure artifacts**:
+    -    (The incorrect Excel output)
+    -   All 5 PDFs uploaded in chat message #332.
 
 **Critical Info for New Agent**
--   The application is now a full-stack app. The original client-side-only architecture has been upgraded to include a FastAPI backend and MongoDB for data persistence.
--   Your immediate priority is to fix the data extraction logic for Flipkart invoices in . Use the artifacts provided by the user for debugging and testing.
--   After fixing the invoice issue, you must guide the user to **re-deploy** the application. This is critical because the fix for employee data not being saved is complete but **not yet live** on their production URL.
--   You **MUST** communicate with the user in Hinglish.
+-   **User Trust is Low**: The user is extremely frustrated with recurring issues and high credit usage. Acknowledge their frustration (in Hinglish), be transparent, and prioritize fixing the two critical blockers: the invoice extractor and the CORS error.
+-   **Complete the Walkthrough First**: Your immediate task is to finish the code walkthrough the user requested. Do not start fixing anything until you have provided this information.
+-   **The Universal Extractor is Flawed**: The current regex-based approach in  is not robust. It requires a thorough rewrite. Focus on accuracy for all provided sample invoices.
+-   **CORS is Blocking Everything**: The production deployment is useless until the CORS issue is fixed. This is as critical as the extractor bug.
+-   **Communicate in Hinglish**: This is non-negotiable for this user.
 
 **documents and test reports created in this job**
--    (Updated with Invoice Extractor requirements)
+-   
+-   
 -   
 
 **Last 10 User Messages and any pending HUMAN messages**
-10. **User**: How can I find this project in the future to make changes?
-9.  **User**: Okay, merge the docxtractor-2 app into this one.
-8.  **User**: *Provides Job ID for the other app.*
-7.  **User**: *Provides full code for  and  for the invoice extractor.*
-6.  **User**: Why do I have to upload the employee master every time? Why isn't the data saving permanently?
-5.  **Agent**: *Fixes the persistence issue by adding a MongoDB backend for employees and verifies the fix in the preview environment.*
-4.  **User**: Recharge done.
-3.  **Agent**: Summarizes the employee persistence fix and explains that a re-deployment is needed.
-2.  **User (LATEST)**: The invoice extractor is not extracting data correctly for some Flipkart invoices. I've uploaded the invoices and the incorrect Excel output. Please check and fix it.
-1.  **Agent**: Okay, I will analyze the Flipkart invoices and see what the issue is with the data extraction.
+10. **User**: *Asks for the complete flow and code of the invoice extractor.*
+9.  **User**: *Provides the final incorrect Excel output () from the extractor.*
+8.  **User**: *Provides a batch of 5 invoices from all platforms to do a final test.*
+7.  **User**: *Expresses extreme frustration about time and credits wasted on recurring bugs.*
+6.  **User**: *Reports the CORS error again after the latest deployment attempt.*
+5.  **User**: *Asks to call the deployer agent for a health check.*
+4.  **User**: *Reports that Save Salary is not working and the invoice extractor is still failing after a deployment.*
+3.  **User**: *Provides console logs showing CORS, 422, and 404 errors.*
+2.  **User**: *Asks to call the deployer agent to analyze deployment logs.*
+1.  **User**: *Asks about saving salary data monthly, leading to the new feature.*
 
 **Project Health Check:**
--   **Broken**: The Invoice Extractor feature is partially broken (specifically for Flipkart invoices).
+-   **Broken**:
+    -   The core Invoice Extractor feature.
+    -   The entire production deployment (due to CORS errors).
 -   **Mocked**: None.
 
 **3rd Party Integrations**
 -   **SheetJS (xlsx)**: Frontend Excel processing.
 -   **jsPDF & jsPDF-AutoTable**: Frontend PDF generation.
--   **OpenAI GPT-5.2**: Used via  for AI-based data extraction.
--   **Pytesseract**: For OCR fallback during PDF processing.
--   **MongoDB**: Primary database for persistent data.
+-   **PyPDF2 / Pytesseract**: Backend PDF text extraction.
+-   **openpyxl**: Backend Excel generation.
+-   **MongoDB**: Primary database.
 
 **Testing status**
--   **Testing agent used after significant changes**: YES (used after the initial big refactor).
+-   **Testing agent used after significant changes**: YES
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**: 
--   **Known regressions**: None.
+-   **Known regressions**: The Invoice Extractor's accuracy has regressed with the Universal Extractor implementation.
 
 **Credentials to test flow:**
 -   N/A
 
 **What agent forgot to execute**
--   The agent did not address the low-priority navigation visibility concern mentioned in .
--   The agent has implemented the employee persistence fix but has not yet prompted the user to re-deploy the application to make the changes live. This should be done after the current high-priority issue is resolved.</analysis>
+-   The agent failed to create a truly robust and universal invoice extractor, leading to repeated failures.
+-   The agent failed to permanently resolve the recurring CORS issue, blocking production deployments.
+-   The low-priority navigation visibility concern remains unaddressed.</analysis>
