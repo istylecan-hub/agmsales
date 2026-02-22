@@ -83,14 +83,16 @@ def detect_platform(text: str) -> str:
     """Detect source platform from invoice text."""
     text_lower = text.lower()
     
-    if "flipkart" in text_lower:
+    # Check V-Mart first (specific company name)
+    if "v-mart" in text_lower or "v mart" in text_lower or "vmart" in text_lower:
+        return "VMart"
+    # Check Meesho
+    elif "meesho" in text_lower:
+        return "Meesho"
+    elif "flipkart" in text_lower:
         return "Flipkart"
     elif "amazon seller services" in text_lower or "amazon.in" in text_lower:
         return "Amazon"
-    elif "meesho" in text_lower:
-        return "Meesho"
-    elif "v-mart" in text_lower or "vmart" in text_lower:
-        return "VMart"
     elif "acevector" in text_lower or "snapdeal" in text_lower:
         return "Snapdeal"
     elif "fashnear" in text_lower:
