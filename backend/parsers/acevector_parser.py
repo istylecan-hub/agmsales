@@ -187,27 +187,42 @@ class AceVectorParser(BaseParser):
 
     def _extract_totals(self):
         """Extract AceVector-specific totals"""
-        # Look for totals row: Taxable CGST SGST IGST Cess State Cess Round Off Total Invoice
-        totals_pattern = r'Taxable\s+([\d,]+\.?\d*)\s+[\d,]+\.?\d*\s+[\d,]+\.?\d*\s+([\d,]+\.?\d*)\s+[\d,]+\.?\d*\s+[\d,]+\.?\d*\s+[\d,]+\.?\d*\s+([\d,]+\.?\d*)'
-        match = re.search(totals_pattern, self.text, re.IGNORECASE)
+        # AceVector format has a clear totals row:
+        # Taxable | CGST | SGST | IGST | Cess | State Cess | Round Off | Total Invoice
+        # Example: 14273.70 0.00 0.00 2569.27 0.00 0.00 0.00 16842.97
+        
+        # Look for totals row with all values
+        totals_pattern = r'(\d{1,3}(?:,\d{3})*\.?\d*)\s+(\d+\.?\d*)\s+(\d+\.?\d*)\s+(\d{1,3}(?:,\d{3})*\.?\d*)\s+\d+\.?\d*\s+\d+\.?\d*\s+[\d\.\-]+\s+(\d{1,3}(?:,\d{3})*\.?\d*)'
+        match = re.search(totals_pattern, self.text)
         
         if match:
             self.result.subtotal_fee_amount = self.normalize_amount(match.group(1))
-            self.result.igst_amount = self.normalize_amount(match.group(2))
-            self.result.total_tax_amount = self.result.igst_amount
-            self.result.total_invoice_amount = self.normalize_amount(match.group(3))
+            self.result.cgst_amount = self.normalize_amount(match.group(2))
+            self.result.sgst_amount = self.normalize_amount(match.group(3))
+            self.result.igst_amount = self.normalize_amount(match.group(4))
+            self.result.total_invoice_amount = self.normalize_amount(match.group(5))
+            self.result.total_tax_amount = self.result.igst_amount or ((self.result.cgst_amount or 0) + (self.result.sgst_amount or 0))
             return
         
-        # Try "Total Invoice" pattern
-        total_match = re.search(r'Total\s*Invoice\s*([\d,]+\.?\d*)', self.text, re.IGNORECASE)
+        # Try pattern: Total Invoice followed by amount
+        total_match = re.search(r'Total\s*Invoice\s*[\s:]*([\d,]+\.?\d*)', self.text, re.IGNORECASE)
         if total_match:
             self.result.total_invoice_amount = self.normalize_amount(total_match.group(1))
         
-        # Try "Amount In Words" pattern - extract from nearby numbers
-        words_match = re.search(r'Amount\s*In\s*Words\s*:\s*([A-Za-z\s]+)', self.text, re.IGNORECASE)
+        # Look for IGST amount
+        igst_match = re.search(r'IGST[:\s]*([\d,]+\.?\d*)', self.text, re.IGNORECASE)
+        if igst_match:
+            self.result.igst_amount = self.normalize_amount(igst_match.group(1))
+            self.result.total_tax_amount = self.result.igst_amount
+        
+        # Try "Amount In Words" pattern - look for total before it
+        words_match = re.search(r'Amount\s*In\s*Words', self.text, re.IGNORECASE)
         if words_match and not self.result.total_invoice_amount:
-            # Look for number before "Amount In Words"
-            before_text = self.text[:self.text.find(words_match.group(0))]
+            # Look for number pattern before "Amount In Words"
+            before_text = self.text[:words_match.start()]
+            amounts = re.findall(r'(\d{1,3}(?:,\d{3})*\.\d{2})', before_text)
+            if amounts:
+                self.result.total_invoice_amount = self.normalize_amount(amounts[-1])
             amounts = re.findall(r'([\d,]+\.?\d{2})', before_text)
             if amounts:
                 self.result.total_invoice_amount = self.normalize_amount(amounts[-1])
