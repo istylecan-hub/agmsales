@@ -204,16 +204,17 @@ def extract_line_items(text: str, platform: str) -> List[Dict[str, Any]]:
     
     # Track SAC codes we've already processed
     processed_sacs = set()
+    processed_descriptions = set()
     
+    # First pass: Look for SAC codes with amounts
     for line in lines:
         line_clean = line.strip()
         if not line_clean or len(line_clean) < 5:
             continue
         
         # Skip header/footer lines
-        skip_keywords = ['total', 'amount in words', 'subtotal', 'grand total', 
-                         'bank', 'account', 'ifsc', 'pan:', 'cin:', 'gstin:',
-                         'signature', 'authorized', 'note:', 'disclaimer']
+        skip_keywords = ['amount in words', 'bank', 'account', 'ifsc', 'pan:', 'cin:', 'gstin:',
+                         'signature', 'authorized', 'note:', 'disclaimer', 'terms', 'condition']
         if any(kw in line_clean.lower() for kw in skip_keywords):
             continue
         
@@ -228,101 +229,103 @@ def extract_line_items(text: str, platform: str) -> List[Dict[str, Any]]:
                 continue
             
             # Remove SAC code from line for amount extraction
-            line_without_sac = line_clean.replace(sac_code, '')
+            line_without_sac = line_clean.replace(sac_code, ' ')
             
-            # Get description from SAC mapping or from line
-            description = SAC_DESCRIPTIONS.get(sac_code)
+            # Get description from SAC mapping
+            description = SAC_DESCRIPTIONS.get(sac_code, f"Service ({sac_code})")
             
-            if not description:
-                # Try to extract description from line
-                desc_match = re.search(r'([A-Za-z][A-Za-z\s&\-]+(?:Fee|Charges?|Services?|Recovery))', line_clean, re.IGNORECASE)
-                if desc_match:
-                    description = desc_match.group(1).strip()
-            
-            # Extract amounts
-            amounts = extract_amounts_from_line(line_without_sac)
-            
-            # Filter out tax rates (usually small numbers like 9, 18)
-            real_amounts = [a for a in amounts if a > 50]
+            # Extract amounts with 2 decimal places
+            amount_pattern = r'(\d{1,3}(?:,\d{3})*\.\d{2})'
+            found_amounts = re.findall(amount_pattern, line_without_sac)
+            amounts = [normalize_amount(a) for a in found_amounts if normalize_amount(a)]
             
             fee_amount = None
             tax_amount = None
             total_amount = None
             
-            if real_amounts:
-                if len(real_amounts) >= 3:
-                    # Order: Fee, Tax, Total
-                    fee_amount = real_amounts[0]
-                    tax_amount = real_amounts[1]
-                    total_amount = real_amounts[2]
-                elif len(real_amounts) == 2:
-                    # Smaller is fee, larger is total
-                    sorted_amts = sorted(real_amounts)
-                    fee_amount = sorted_amts[0]
-                    total_amount = sorted_amts[1]
-                    # Calculate tax
+            if amounts:
+                # Sort amounts
+                sorted_amounts = sorted(amounts)
+                
+                if len(sorted_amounts) >= 3:
+                    # Typical order: Fee, Tax, Total
+                    # Check if largest ≈ smallest + middle
+                    if abs(sorted_amounts[-1] - (sorted_amounts[0] + sorted_amounts[1])) < sorted_amounts[-1] * 0.02:
+                        fee_amount = sorted_amounts[0]
+                        tax_amount = sorted_amounts[1]
+                        total_amount = sorted_amounts[-1]
+                    else:
+                        fee_amount = sorted_amounts[0]
+                        tax_amount = sorted_amounts[-1] - sorted_amounts[0] if sorted_amounts[-1] > sorted_amounts[0] else None
+                        total_amount = sorted_amounts[-1]
+                elif len(sorted_amounts) == 2:
+                    fee_amount = sorted_amounts[0]
+                    total_amount = sorted_amounts[1]
                     if total_amount > fee_amount:
                         tax_amount = round(total_amount - fee_amount, 2)
-                elif len(real_amounts) == 1:
-                    fee_amount = real_amounts[0]
-                    total_amount = real_amounts[0]
+                elif len(sorted_amounts) == 1:
+                    total_amount = sorted_amounts[0]
+                    # Assume 18% tax
+                    fee_amount = round(total_amount / 1.18, 2)
+                    tax_amount = round(total_amount - fee_amount, 2)
             
-            # Determine tax type (IGST vs CGST/SGST)
-            cgst = None
-            sgst = None
-            igst = None
-            
-            if tax_amount:
-                if 'igst' in line_clean.lower() or 'inter' in text.lower():
-                    igst = tax_amount
-                else:
-                    # Default to IGST for inter-state (most common for e-commerce)
-                    igst = tax_amount
-            
-            if fee_amount or total_amount:
+            if total_amount and total_amount > 0:
                 line_items.append({
                     "category_code_or_hsn": sac_code,
-                    "service_description": description or f"Service ({sac_code})",
+                    "service_description": description,
                     "fee_amount": fee_amount,
-                    "cgst_amount": cgst,
-                    "sgst_amount": sgst,
-                    "igst_amount": igst,
+                    "cgst_amount": None,
+                    "sgst_amount": None,
+                    "igst_amount": tax_amount,
                     "total_tax_amount": tax_amount,
                     "total_amount": total_amount,
                     "tax_rate_percent": 18.0
                 })
                 processed_sacs.add(sac_code)
     
-    # If no line items found with SAC codes, try description-based extraction
+    # Second pass: If no SAC-based items, try description-based extraction
     if not line_items:
         service_keywords = [
             ('commission', 'Commission Fee'),
+            ('marketplace', 'Marketplace Fee'),
             ('logistics', 'Logistics Fee'),
             ('shipping', 'Shipping Fee'),
             ('delivery', 'Delivery Fee'),
-            ('fixed', 'Fixed Fee'),
-            ('closing', 'Closing Fee'),
+            ('fixed fee', 'Fixed Fee'),
+            ('closing fee', 'Closing Fee'),
             ('collection', 'Collection Fee'),
             ('payment', 'Payment Gateway Fee'),
-            ('gateway', 'Payment Gateway Fee'),
+            ('gateway fee', 'Payment Gateway Fee'),
             ('advertisement', 'Advertisement Fee'),
             ('monetization', 'Monetization Fee'),
             ('marketing', 'Marketing Fee'),
             ('fulfilment', 'Fulfillment Fee'),
             ('fulfillment', 'Fulfillment Fee'),
             ('support', 'Support Services Fee'),
+            ('pick fee', 'Pick & Pack Fee'),
+            ('pack fee', 'Pick & Pack Fee'),
+            ('weight handling', 'Weight Handling Fee'),
+            ('tech fee', 'Technology Fee'),
         ]
         
         for line in lines:
             line_lower = line.lower()
+            
+            # Skip total/subtotal lines
+            if 'total' in line_lower and not any(kw[0] in line_lower for kw in service_keywords):
+                continue
+            
             for keyword, description in service_keywords:
-                if keyword in line_lower and 'total' not in line_lower:
-                    amounts = extract_amounts_from_line(line)
-                    real_amounts = [a for a in amounts if a > 10]
+                if keyword in line_lower and description not in processed_descriptions:
+                    # Extract amounts
+                    amount_pattern = r'(\d{1,3}(?:,\d{3})*\.\d{2})'
+                    found_amounts = re.findall(amount_pattern, line)
+                    amounts = [normalize_amount(a) for a in found_amounts if normalize_amount(a) and normalize_amount(a) > 1]
                     
-                    if real_amounts:
-                        total = max(real_amounts)
-                        fee = min(real_amounts) if len(real_amounts) > 1 else total
+                    if amounts:
+                        sorted_amounts = sorted(amounts)
+                        total = sorted_amounts[-1]
+                        fee = sorted_amounts[0] if len(sorted_amounts) > 1 else round(total / 1.18, 2)
                         tax = round(total - fee, 2) if total > fee else None
                         
                         line_items.append({
@@ -336,7 +339,8 @@ def extract_line_items(text: str, platform: str) -> List[Dict[str, Any]]:
                             "total_amount": total,
                             "tax_rate_percent": 18.0
                         })
-                        break  # Only one item per line
+                        processed_descriptions.add(description)
+                        break
     
     return line_items
 
