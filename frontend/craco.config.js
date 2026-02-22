@@ -85,6 +85,23 @@ if (config.enableVisualEdits && babelMetadataPlugin) {
 }
 
 webpackConfig.devServer = (devServerConfig) => {
+  // Configure client for preview URL access (non-localhost)
+  devServerConfig.client = {
+    ...devServerConfig.client,
+    // Disable overlay for preview URLs to prevent React Refresh errors
+    overlay: false,
+    // Use webSocket for HMR
+    webSocketURL: {
+      hostname: '0.0.0.0',
+      pathname: '/ws',
+      port: 443,
+      protocol: 'wss',
+    },
+  };
+  
+  // Allow all hosts for preview access
+  devServerConfig.allowedHosts = 'all';
+  
   // Apply visual edits dev server setup only if enabled
   if (config.enableVisualEdits && setupDevServer) {
     devServerConfig = setupDevServer(devServerConfig);
