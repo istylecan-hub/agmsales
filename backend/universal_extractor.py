@@ -111,30 +111,57 @@ def extract_gstin(text: str) -> List[str]:
 def extract_invoice_number(text: str, platform: str) -> Optional[str]:
     """Extract invoice number based on platform."""
     
-    # Platform-specific patterns
-    patterns = [
-        # Credit Note patterns
-        r'Credit\s*Note\s*(?:#|No\.?|Number)?[:\s]*([A-Z0-9/\-]+)',
-        
-        # Invoice patterns
-        r'Invoice\s*(?:#|No\.?|Number)?[:\s]*([A-Z0-9/\-]+)',
-        r'Document\s*(?:#|No\.?|Number)?[:\s]*([A-Z0-9/\-]+)',
-        
-        # Platform-specific
-        r'(FKCKA\d+)',  # Flipkart Credit Note
-        r'(FKRKA\d+)',  # Flipkart Invoice
-        r'(ICNDL\d+)',  # Flipkart Commercial
-        r'(KA-\d+-\d+)',  # Amazon
-        r'(TI/\d+/\d+/\d+)',  # Meesho
-        r'(COM/\d+/IN\d+)',  # V-Mart
-        r'(\d+[A-Z]+/IN/\d+)',  # AceVector
+    # Platform-specific patterns first (more reliable)
+    platform_patterns = {
+        'Flipkart': [
+            r'Credit\s*Note\s*#[:\s]*([A-Z0-9]+)',
+            r'Invoice\s*#[:\s]*([A-Z0-9]+)',
+            r'(FKCKA\d+)',
+            r'(FKRKA\d+)',
+            r'(ICNDL\d+)',
+        ],
+        'Amazon': [
+            r'Invoice\s*No[:\.\s]*([A-Z]{2}-\d+-\d+)',
+            r'(KA-\d+-\d+)',
+            r'(DL-\d+-\d+)',
+            r'([A-Z]{2}-\d{4}-\d+)',
+        ],
+        'Meesho': [
+            r'Invoice\s*No[:\.\s]*(TI/\d+/\d+/\d+)',
+            r'(TI/\d+/\d+/\d+)',
+        ],
+        'VMart': [
+            r'Invoice\s*No[:\.\s]*(COM/\d+/IN\d+)',
+            r'(COM/\d+/IN\d+)',
+        ],
+        'Snapdeal': [
+            r'Invoice\s*No[:\.\s]*(\d+[A-Z]+/IN/\d+)',
+            r'(\d+[A-Z]+/IN/\d+)',
+            r'Invoice\s*Number[:\s]*(\d+)',
+        ],
+    }
+    
+    # Try platform-specific patterns first
+    if platform in platform_patterns:
+        for pattern in platform_patterns[platform]:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                inv_num = match.group(1).strip()
+                if len(inv_num) >= 4:
+                    return inv_num
+    
+    # Generic patterns
+    generic_patterns = [
+        r'(?:Invoice|Credit\s*Note)\s*(?:No\.?|Number|#)[:\s]*([A-Z0-9/\-]+)',
+        r'Document\s*(?:No\.?|Number)[:\s]*([A-Z0-9/\-]+)',
     ]
     
-    for pattern in patterns:
+    for pattern in generic_patterns:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
             inv_num = match.group(1).strip()
-            if len(inv_num) >= 4:
+            # Filter out common false matches
+            if inv_num.lower() not in ['date', 'details', 'tax', 'invoice'] and len(inv_num) >= 4:
                 return inv_num
     
     return None
