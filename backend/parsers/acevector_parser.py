@@ -214,25 +214,37 @@ class AceVectorParser(BaseParser):
 
     def _extract_totals(self):
         """Extract AceVector-specific totals"""
-        # AceVector format has a clear totals row:
-        # Taxable | CGST | SGST | IGST | Cess | State Cess | Round Off | Total Invoice
-        # Example: 14273.70 0.00 0.00 2569.27 0.00 0.00 0.00 16842.97
+        # AceVector format has totals data on a line by itself:
+        # "14273.70 0.00 0.00 2569.27 0.00 0.00 0.00 16842.97"
+        # Format: Taxable | CGST | SGST | IGST | Cess | State Cess | Round Off | Total Invoice
         
-        # Look for totals row with all values
-        totals_pattern = r'(\d{1,3}(?:,\d{3})*\.?\d*)\s+(\d+\.?\d*)\s+(\d+\.?\d*)\s+(\d{1,3}(?:,\d{3})*\.?\d*)\s+\d+\.?\d*\s+\d+\.?\d*\s+[\d\.\-]+\s+(\d{1,3}(?:,\d{3})*\.?\d*)'
-        match = re.search(totals_pattern, self.text)
+        # Look for line with exactly 8 decimal numbers (the totals row)
+        lines = self.text.split('\n')
         
-        if match:
-            self.result.subtotal_fee_amount = self.normalize_amount(match.group(1))
-            self.result.cgst_amount = self.normalize_amount(match.group(2))
-            self.result.sgst_amount = self.normalize_amount(match.group(3))
-            self.result.igst_amount = self.normalize_amount(match.group(4))
-            self.result.total_invoice_amount = self.normalize_amount(match.group(5))
-            self.result.total_tax_amount = self.result.igst_amount or ((self.result.cgst_amount or 0) + (self.result.sgst_amount or 0))
-            return
+        for line in lines:
+            # Skip header row
+            if 'Taxable' in line and 'CGST' in line:
+                continue
+            
+            # Find lines with multiple decimal amounts
+            amounts = re.findall(r'(\d+\.\d{2})', line)
+            if len(amounts) >= 7:  # Should have at least 7-8 values
+                amounts = [float(a) for a in amounts]
+                
+                # Format: [Taxable, CGST, SGST, IGST, Cess, StateCess, RoundOff, Total]
+                if len(amounts) >= 8:
+                    self.result.subtotal_fee_amount = amounts[0]
+                    self.result.cgst_amount = amounts[1]
+                    self.result.sgst_amount = amounts[2]
+                    self.result.igst_amount = amounts[3]
+                    self.result.total_invoice_amount = amounts[7]
+                    self.result.total_tax_amount = self.result.igst_amount or ((self.result.cgst_amount or 0) + (self.result.sgst_amount or 0))
+                    return
         
-        # Try pattern: Total Invoice followed by amount
+        # Fallback: Try "Total Invoice" pattern
         total_match = re.search(r'Total\s*Invoice\s*[\s:]*([\d,]+\.?\d*)', self.text, re.IGNORECASE)
+        if total_match:
+            self.result.total_invoice_amount = self.normalize_amount(total_match.group(1))
         if total_match:
             self.result.total_invoice_amount = self.normalize_amount(total_match.group(1))
         
