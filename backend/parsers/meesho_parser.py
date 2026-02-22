@@ -210,44 +210,6 @@ class MeeshoParser(BaseParser):
                 tax_rate_percent=18.0
             ))
             processed.add(sac_code)
-            igst_match = re.search(r'([\d,]+\.?\d*)\s*@\s*18%', amount_part)
-            if igst_match:
-                igst_amount = self.normalize_amount(igst_match.group(1))
-            
-            # Total is usually the largest amount (last one)
-            if amounts:
-                # Filter out zeros
-                non_zero = [a for a in amounts if a and a > 0]
-                if non_zero:
-                    total_amount = max(non_zero)
-                    # IGST is typically fee * 0.18
-                    if fee_amount and not igst_amount:
-                        expected_igst = round(fee_amount * 0.18, 2)
-                        for a in non_zero:
-                            if abs(a - expected_igst) < 1:  # Within 1 INR
-                                igst_amount = a
-                                break
-            
-            # Handle CGST/SGST if present (intra-state)
-            if sgst_amount and sgst_amount > 0:
-                total_tax = (sgst_amount or 0) + (cgst_amount or 0)
-            else:
-                total_tax = igst_amount
-            
-            description = desc_part if desc_part else self.get_sac_description(sac_code)
-            
-            self.result.line_items.append(LineItem(
-                category_code_or_hsn=sac_code,
-                service_description=description,
-                fee_amount=fee_amount,
-                cgst_amount=cgst_amount if cgst_amount and cgst_amount > 0 else None,
-                sgst_amount=sgst_amount if sgst_amount and sgst_amount > 0 else None,
-                igst_amount=igst_amount,
-                total_tax_amount=total_tax,
-                total_amount=total_amount,
-                tax_rate_percent=18.0
-            ))
-            processed.add(sac_code)
 
     def _extract_totals(self):
         """Extract Meesho-specific totals"""
