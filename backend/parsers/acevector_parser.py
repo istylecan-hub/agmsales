@@ -114,57 +114,53 @@ class AceVectorParser(BaseParser):
 
     def _extract_line_items(self):
         """Extract line items from AceVector invoice"""
-        # AceVector format in Supply Details table:
-        # Sl No | Description | HSN | QTY | Unit | Unit Price | Discount | Taxable | GST(%) | Other | Total
-        # Note: Description might be split (e.g., "Brand" on one line, "Monetization Fees" on next)
+        # AceVector format:
+        # "1 Brand 998365 OTH 1 14273.70 0.00 14273.70 18 0.00 14273.70"
+        # Sl No | Description | HSN | QTY-type | QTY | Unit Price | Discount | Taxable | GST(%) | Other | Total
         
-        # Look for HSN/SAC codes
         lines = self.text.split('\n')
         
         for i, line in enumerate(lines):
+            # Skip headers and totals rows
+            if 'Sl No' in line or 'Description' in line or 'Taxable' in line.split()[0:1]:
+                continue
+            if 'Total Invoice' in line:
+                continue
+                
             # Look for 6-digit HSN/SAC code
-            hsn_match = re.search(r'(998\d{3}|\d{6})', line)
+            hsn_match = re.search(r'(998\d{3})', line)
             if not hsn_match:
                 continue
             
             hsn_code = hsn_match.group(1)
             
-            # Get all numbers from this line
-            numbers = re.findall(r'([\d,]+\.?\d*)', line.replace(hsn_code, ''))
-            numbers = [self.normalize_amount(n) for n in numbers if self.normalize_amount(n)]
-            numbers = [n for n in numbers if n is not None]
+            # For AceVector, extract just the decimal numbers (amounts)
+            decimal_amounts = re.findall(r'(\d+\.\d{2})', line)
+            decimal_amounts = [float(a) for a in decimal_amounts if float(a) > 0]
             
-            if not numbers:
+            if not decimal_amounts:
                 continue
             
             # Get description (text before HSN)
             desc = line[:hsn_match.start()].strip()
-            desc = re.sub(r'^\d+\s*', '', desc).strip()  # Remove leading number
+            desc = re.sub(r'^\d+\s*', '', desc).strip()  # Remove leading serial number
             
             # Check next line for continuation of description
             if i + 1 < len(lines):
                 next_line = lines[i + 1].strip()
-                if next_line and not re.search(r'^\d|Taxable|Total|Amount', next_line):
-                    # Might be continuation
-                    if not re.search(r'[\d,]+\.?\d{2}', next_line):  # No amounts
+                # "Monetization Fees" continuation
+                if next_line and not re.search(r'^\d|Taxable|Total|Amount|Sl No', next_line):
+                    if not re.search(r'\d+\.\d{2}', next_line):  # No amounts
                         desc = f"{desc} {next_line}".strip()
             
-            # Expected format: [qty_or_something, unit_price, discount, taxable, rate, other, total]
-            # Or simpler: find taxable amount (should match unit price for single qty)
-            # GST rate is usually 18 for services
+            # AceVector format: amounts are [unit_price, discount, taxable, other, total]
+            # After filtering zero discounts: [14273.70, 14273.70, 14273.70] 
+            # The first non-zero amount is likely the fee
+            fee_amount = decimal_amounts[0] if decimal_amounts else None
             
-            # Look for the taxable amount pattern in totals row
-            gst_rate = 18.0
-            rate_match = re.search(r'(\d+)\s*%?', line)
-            if rate_match and rate_match.group(1) in ['9', '18', '28', '5', '12']:
-                gst_rate = float(rate_match.group(1))
-            
-            # Fee is usually the first significant amount
-            fee_amount = None
-            for n in numbers:
-                if n > 0:
-                    fee_amount = n
-                    break
+            # Look for GST rate (typically 18)
+            rate_match = re.search(r'\s+(\d+)\s+\d+\.\d{2}', line)
+            gst_rate = float(rate_match.group(1)) if rate_match else 18.0
             
             if fee_amount:
                 igst_amount = round(fee_amount * gst_rate / 100, 2)
@@ -181,7 +177,7 @@ class AceVectorParser(BaseParser):
                 ))
                 return  # Only one line item typically
         
-        # If table parsing failed, try simpler extraction
+        # If table parsing failed, try simple extraction from totals
         if not self.result.line_items:
             self._extract_simple()
 
