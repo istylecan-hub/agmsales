@@ -122,9 +122,9 @@ class AceVectorParser(BaseParser):
         
         for i, line in enumerate(lines):
             # Skip headers and totals rows
-            if 'Sl No' in line or 'Description' in line or 'Taxable' in line.split()[0:1]:
+            if 'Sl No' in line or 'Description' in line:
                 continue
-            if 'Total Invoice' in line:
+            if 'Taxable' in line.split()[0:1] or 'Total Invoice' in line:
                 continue
                 
             # Look for 6-digit HSN/SAC code
@@ -136,9 +136,12 @@ class AceVectorParser(BaseParser):
             
             # For AceVector, extract just the decimal numbers (amounts)
             decimal_amounts = re.findall(r'(\d+\.\d{2})', line)
-            decimal_amounts = [float(a) for a in decimal_amounts if float(a) > 0]
+            decimal_amounts = [float(a) for a in decimal_amounts]
             
-            if not decimal_amounts:
+            # Filter out zeros and keep meaningful amounts
+            non_zero_amounts = [a for a in decimal_amounts if a > 0]
+            
+            if not non_zero_amounts:
                 continue
             
             # Get description (text before HSN)
@@ -153,14 +156,17 @@ class AceVectorParser(BaseParser):
                     if not re.search(r'\d+\.\d{2}', next_line):  # No amounts
                         desc = f"{desc} {next_line}".strip()
             
-            # AceVector format: amounts are [unit_price, discount, taxable, other, total]
-            # After filtering zero discounts: [14273.70, 14273.70, 14273.70] 
-            # The first non-zero amount is likely the fee
-            fee_amount = decimal_amounts[0] if decimal_amounts else None
+            # The first meaningful amount is the fee (taxable amount)
+            fee_amount = non_zero_amounts[0] if non_zero_amounts else None
             
-            # Look for GST rate (typically 18)
-            rate_match = re.search(r'\s+(\d+)\s+\d+\.\d{2}', line)
-            gst_rate = float(rate_match.group(1)) if rate_match else 18.0
+            # Look for GST rate - it's a 2-digit integer (like 18) between decimal amounts
+            # Pattern: look for integers in [5, 9, 12, 18, 28] 
+            gst_rate = 18.0  # Default
+            parts = line.split()
+            for part in parts:
+                if part in ['5', '9', '12', '18', '28']:
+                    gst_rate = float(part)
+                    break
             
             if fee_amount:
                 igst_amount = round(fee_amount * gst_rate / 100, 2)
