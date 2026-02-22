@@ -1,6 +1,13 @@
 // craco.config.js
 const path = require("path");
-require("dotenv").config();
+
+// Load dotenv but don't override NODE_ENV
+const dotenv = require("dotenv");
+const envConfig = dotenv.config();
+// Ensure NODE_ENV is not overridden by .env file
+if (envConfig.parsed && envConfig.parsed.NODE_ENV) {
+  delete process.env.NODE_ENV;
+}
 
 // Check if we're in development/preview mode (not production build)
 // Craco sets NODE_ENV=development for start, NODE_ENV=production for build
