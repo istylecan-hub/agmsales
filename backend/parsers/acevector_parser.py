@@ -65,39 +65,28 @@ class AceVectorParser(BaseParser):
 
     def _extract_gstins(self):
         """Extract provider and receiver GSTINs"""
-        # AceVector format has clear Supplier Details and Buyer Details sections
-        # Supplier Details: GSTIN: 06AABCJ8820B1ZY
-        # Buyer Details: GSTIN: 07DPSPK6851R1ZP
+        # AceVector format: Both GSTINs often on same line
+        # "GSTIN: 06AABCJ8820B1ZY GSTIN: 07DPSPK6851R1ZP"
         
-        # More precise pattern matching for labeled sections
-        supplier_section = re.search(r'Supplier\s*Details[:\s]*(.*?)(?:Buyer|Address|$)', 
-                                     self.text, re.IGNORECASE | re.DOTALL)
-        buyer_section = re.search(r'Buyer\s*Details[:\s]*(.*?)(?:Place|Address|Amount|$)', 
-                                  self.text, re.IGNORECASE | re.DOTALL)
+        gstin_pattern = r'(\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1})'
         
-        gstin_pattern = r'GSTIN[:\s]*(\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1})'
+        # Look for pattern "Supplier Details:...GSTIN: XXX...Buyer Details:...GSTIN: YYY"
+        # In AceVector, they appear as: "GSTIN: supplier_gstin GSTIN: buyer_gstin" on one line
         
-        if supplier_section:
-            match = re.search(gstin_pattern, supplier_section.group(1), re.IGNORECASE)
-            if match:
-                self.result.service_provider_gstin = match.group(1).upper()
+        # Find all GSTINs in order of appearance
+        all_gstins = re.findall(gstin_pattern, self.text, re.IGNORECASE)
+        unique_gstins = []
+        for g in all_gstins:
+            g_upper = g.upper()
+            if g_upper not in unique_gstins:
+                unique_gstins.append(g_upper)
         
-        if buyer_section:
-            match = re.search(gstin_pattern, buyer_section.group(1), re.IGNORECASE)
-            if match:
-                self.result.service_receiver_gstin = match.group(1).upper()
-        
-        # Fallback: find all GSTINs and differentiate by PAN
-        if not self.result.service_provider_gstin or not self.result.service_receiver_gstin:
-            gstins = self.extract_gstin(self.text)
-            unique_gstins = list(dict.fromkeys(gstins))  # Remove duplicates preserving order
-            
-            for gstin in unique_gstins:
-                if 'AABCJ8820B' in gstin:  # AceVector's PAN
-                    if not self.result.service_provider_gstin:
-                        self.result.service_provider_gstin = gstin
-                elif not self.result.service_receiver_gstin:
-                    self.result.service_receiver_gstin = gstin
+        # AceVector's PAN is AABCJ8820B
+        for gstin in unique_gstins:
+            if 'AABCJ8820B' in gstin:
+                self.result.service_provider_gstin = gstin
+            elif not self.result.service_receiver_gstin:
+                self.result.service_receiver_gstin = gstin
 
     def _extract_place_of_supply(self):
         """Extract place of supply state code"""
