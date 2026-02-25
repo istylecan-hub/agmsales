@@ -16,6 +16,11 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  Package,
+  Upload,
+  Tags,
+  AlertCircle,
+  BarChart3,
 } from 'lucide-react';
 
 export const Layout = ({ children }) => {
@@ -30,7 +35,13 @@ export const Layout = ({ children }) => {
     { path: '/attendance', icon: Calendar, label: 'attendance' },
     { path: '/configuration', icon: Settings, label: 'configuration' },
     { path: '/reports', icon: FileSpreadsheet, label: 'reports' },
-    { path: '/invoice-extractor', icon: FileText, label: 'invoiceExtractor', isNew: true },
+    { path: '/invoice-extractor', icon: FileText, label: 'invoiceExtractor' },
+    // OrderHub Section
+    { path: '/orderhub', icon: Package, label: 'OrderHub', isNew: true },
+    { path: '/orderhub/upload', icon: Upload, label: 'Upload Orders' },
+    { path: '/orderhub/reports', icon: BarChart3, label: 'Order Reports' },
+    { path: '/orderhub/master-skus', icon: Tags, label: 'Master SKUs' },
+    { path: '/orderhub/unmapped', icon: AlertCircle, label: 'Unmapped SKUs' },
   ];
 
   const NavItem = ({ item, mobile = false }) => {
