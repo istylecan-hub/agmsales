@@ -17,14 +17,15 @@ class VMartParser(BaseParser):
     def parse(self) -> NormalizedInvoice:
         """Parse V-Mart invoice text"""
         self.result.source_platform = "V-Mart"
+        self.result.platform_name = "V-Mart"
         self.result.service_provider_name = "V-Mart Retail Limited"
+        self.result.supplier_name = "V-Mart Retail Limited"
         
         # Detect document type
-        if "credit note" in self.text.lower():
-            self.result.document_type = "CreditNote"
+        self.result.document_type = self.detect_document_type()
+        if self.result.document_type == "CreditNote":
             self.result.template_id = "VMART_CREDIT_NOTE"
         else:
-            self.result.document_type = "Invoice"
             self.result.template_id = "VMART_TAX_INVOICE"
         
         self._extract_invoice_number()

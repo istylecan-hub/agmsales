@@ -17,14 +17,15 @@ class AceVectorParser(BaseParser):
     def parse(self) -> NormalizedInvoice:
         """Parse AceVector invoice text"""
         self.result.source_platform = "AceVector"
+        self.result.platform_name = "AceVector"
         self.result.service_provider_name = "AceVector Limited"
+        self.result.supplier_name = "AceVector Limited"
         
         # Detect document type
-        if "credit note" in self.text.lower():
-            self.result.document_type = "CreditNote"
+        self.result.document_type = self.detect_document_type()
+        if self.result.document_type == "CreditNote":
             self.result.template_id = "ACEVECTOR_CREDIT_NOTE"
         else:
-            self.result.document_type = "Invoice"
             self.result.template_id = "ACEVECTOR_TAX_INVOICE"
         
         self._extract_invoice_number()

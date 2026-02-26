@@ -17,14 +17,15 @@ class FashnearParser(BaseParser):
     def parse(self) -> NormalizedInvoice:
         """Parse Fashnear invoice text"""
         self.result.source_platform = "Fashnear"
+        self.result.platform_name = "Fashnear"
         self.result.service_provider_name = "Fashnear Technologies Private Limited"
+        self.result.supplier_name = "Fashnear Technologies Private Limited"
         
         # Detect document type
-        if "credit note" in self.text.lower():
-            self.result.document_type = "CreditNote"
+        self.result.document_type = self.detect_document_type()
+        if self.result.document_type == "CreditNote":
             self.result.template_id = "FASHNEAR_CREDIT_NOTE"
         else:
-            self.result.document_type = "Invoice"
             self.result.template_id = "FASHNEAR_TAX_INVOICE"
         
         self._extract_invoice_number()
