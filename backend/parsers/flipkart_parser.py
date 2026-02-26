@@ -17,9 +17,12 @@ class FlipkartParser(BaseParser):
     def parse(self) -> NormalizedInvoice:
         """Parse Flipkart invoice text"""
         self.result.source_platform = "Flipkart"
+        self.result.platform_name = "Flipkart"
         self.result.service_provider_name = "Flipkart Internet Private Limited"
+        self.result.supplier_name = "Flipkart Internet Private Limited"
         
         # Detect document type
+        self.result.document_type = self.detect_document_type()
         text_lower = self.text.lower()
         if "commercial credit note" in text_lower:
             self.result.document_type = "CommercialCreditNote"

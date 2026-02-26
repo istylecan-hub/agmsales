@@ -17,14 +17,15 @@ class MeeshoParser(BaseParser):
     def parse(self) -> NormalizedInvoice:
         """Parse Meesho invoice text"""
         self.result.source_platform = "Meesho"
+        self.result.platform_name = "Meesho"
         self.result.service_provider_name = "Meesho Technologies Private Limited"
+        self.result.supplier_name = "Meesho Technologies Private Limited"
         
         # Detect document type
-        if "credit note" in self.text.lower():
-            self.result.document_type = "CreditNote"
+        self.result.document_type = self.detect_document_type()
+        if self.result.document_type == "CreditNote":
             self.result.template_id = "MEESHO_CREDIT_NOTE"
         else:
-            self.result.document_type = "Invoice"
             self.result.template_id = "MEESHO_TAX_INVOICE"
         
         self._extract_invoice_number()
