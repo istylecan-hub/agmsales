@@ -427,13 +427,32 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
   const otDays = netOTHours / otConversionBase;
   
   // SALARY CALCULATION (as per user's exact formula)
-  // Per Day Salary = Monthly Salary / Days in Month
+  // For current month, use actual days elapsed (not full month)
+  const today = new Date();
+  const isCurrentMonth = attendanceData?.selectedMonth === (today.getMonth() + 1) && 
+                         attendanceData?.selectedYear === today.getFullYear();
+  
+  // Actual days to consider for calculation
+  // If current month: use today's date as the effective days
+  // If past month: use full daysInMonth
+  const effectiveDaysInMonth = isCurrentMonth ? Math.min(today.getDate(), daysInMonth) : daysInMonth;
+  
+  // Count future Sundays (should not affect calculation for current month)
+  let futureSundays = 0;
+  if (isCurrentMonth) {
+    for (let d = today.getDate() + 1; d <= daysInMonth; d++) {
+      const dateCheck = new Date(today.getFullYear(), today.getMonth(), d);
+      if (dateCheck.getDay() === 0) futureSundays++;
+    }
+  }
+  
+  // Per Day Salary = Monthly Salary / Days in Month (always use full month for per day rate)
   const perDaySalary = masterEmp.salary / daysInMonth;
   
-  // PRESENT DAYS = Days in Month - Absent Days - Sandwich Days
-  // If no absent and no sandwich: Present = full month (e.g., 28 days)
+  // PRESENT DAYS = Effective Days in Month - Absent Days - Sandwich Days
+  // If no absent and no sandwich: Present = effective days
   // Sunday NOT working is NOT absence - it's paid WO (unless sandwiched)
-  const presentDaysCalculated = daysInMonth - absentDays - sandwichDays;
+  const presentDaysCalculated = effectiveDaysInMonth - absentDays - sandwichDays;
   
   // TOTAL PAYABLE DAYS = Present Days + Sunday Working + Holiday Working + OT Days
   // Sunday/Holiday working is EXTRA pay on top of base salary
