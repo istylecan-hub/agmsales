@@ -119,6 +119,17 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
   const onlySundayNoOT = masterEmp.onlySundayNoOT === true;
   
   // Process each day
+  // Get today's date to check for future days
+  const today = new Date();
+  const currentDay = today.getDate();
+  const currentMonth = today.getMonth() + 1; // 1-indexed
+  const currentYear = today.getFullYear();
+  
+  // Check if we're processing current month's data
+  // If yes, don't count future days as absent
+  const isCurrentMonth = attendanceData?.selectedMonth === currentMonth && 
+                         attendanceData?.selectedYear === currentYear;
+  
   attEmp.dailyData.forEach((day) => {
     const {
       day: dayNum,
@@ -127,6 +138,9 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
       outTime,
       isSunday,
     } = day;
+    
+    // Skip future days - don't count them as absent
+    const isFutureDay = isCurrentMonth && dayNum > currentDay;
     
     // Check if this day is a manual holiday
     const isManualHoliday = manualHolidays.includes(dayNum);
@@ -146,6 +160,34 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
     let workMins = 0;
     if (hasIn && hasOut) {
       workMins = calculateWorkMinutes(inTime, outTime);
+    }
+    
+    // Handle future days - don't mark as absent
+    if (isFutureDay) {
+      if (isSunday) {
+        classification = DAY_CLASSIFICATIONS.WEEK_OFF;
+        // Don't count future Sundays in WO count
+      } else {
+        classification = 'FUTURE'; // Mark as future, not absent
+        // Don't count in any calculation
+      }
+      
+      dailyBreakdown.push({
+        day: dayNum,
+        dayName,
+        inTime: '--:--',
+        outTime: '--:--',
+        workHours: '00:00',
+        workMins: 0,
+        classification,
+        dayValue: 0,
+        isHalfDay: false,
+        otMinutes: 0,
+        shortMinutes: 0,
+        isHoliday: false,
+        isFuture: true,
+      });
+      return; // Skip further processing for future days
     }
     
     if (hasIn) {
