@@ -219,28 +219,31 @@ class AmazonParser(BaseParser):
             ))
 
     def _extract_totals(self):
-        """Extract Amazon-specific totals"""
-        # Amazon format: "Subtotal of fees amount INR 78.00"
+        """Extract Amazon-specific totals (handles both Invoice and Credit Note)"""
+        is_credit_note = self.result.document_type == "CreditNote"
+        
+        # Amazon format: "Subtotal of fees amount INR 78.00" or "-INR 78.00" for credit notes
         patterns = {
             'subtotal': [
-                r'Subtotal\s+of\s+fees\s+amount\s*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)',
-                r'Subtotal\s+of\s+fees\s*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)',
+                r'Subtotal\s+of\s+fees\s+amount\s*[-]?(?:INR|Rs\.?)?\s*[-]?([\d,]+\.?\d*)',
+                r'Subtotal\s+of\s+fees\s*[-]?(?:INR|Rs\.?)?\s*[-]?([\d,]+\.?\d*)',
             ],
             'igst': [
-                r'Subtotal\s+for\s+IGST\s*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)',
+                r'Subtotal\s+for\s+IGST\s*[-]?(?:INR|Rs\.?)?\s*[-]?([\d,]+\.?\d*)',
             ],
             'cgst': [
-                r'Subtotal\s+for\s+CGST\s*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)',
+                r'Subtotal\s+for\s+CGST\s*[-]?(?:INR|Rs\.?)?\s*[-]?([\d,]+\.?\d*)',
             ],
             'sgst': [
-                r'Subtotal\s+for\s+SGST\s*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)',
+                r'Subtotal\s+for\s+SGST\s*[-]?(?:INR|Rs\.?)?\s*[-]?([\d,]+\.?\d*)',
             ],
             'total_tax': [
-                r'Subtotal\s+of\s+GST\s+amount\s*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)',
+                r'Subtotal\s+of\s+GST\s+amount\s*[-]?(?:INR|Rs\.?)?\s*[-]?([\d,]+\.?\d*)',
             ],
             'total': [
-                r'Total\s+Invoice\s+amount\s*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)',
-                r'Total[:\s]*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)',
+                r'Total\s+Invoice\s+amount\s*[-]?(?:INR|Rs\.?)?\s*[-]?([\d,]+\.?\d*)',
+                r'Total\s+(?:Credit\s+Note\s+)?amount\s*[-]?(?:INR|Rs\.?)?\s*[-]?([\d,]+\.?\d*)',
+                r'Total[:\s]*[-]?(?:INR|Rs\.?)?\s*[-]?([\d,]+\.?\d*)',
             ]
         }
         
@@ -250,8 +253,13 @@ class AmazonParser(BaseParser):
                 if match:
                     value = self.normalize_amount(match.group(1))
                     if value:
+                        # Apply negative for credit notes
+                        if is_credit_note:
+                            value = -abs(value)
+                        
                         if field == 'subtotal':
                             self.result.subtotal_fee_amount = value
+                            self.result.subtotal = value
                         elif field == 'igst':
                             self.result.igst_amount = value
                         elif field == 'cgst':
@@ -260,25 +268,32 @@ class AmazonParser(BaseParser):
                             self.result.sgst_amount = value
                         elif field == 'total_tax':
                             self.result.total_tax_amount = value
+                            self.result.total_tax = value
                         elif field == 'total':
                             self.result.total_invoice_amount = value
+                            self.result.grand_total = value
                         break
         
         # Calculate total tax if not found
         if not self.result.total_tax_amount:
             if self.result.igst_amount:
                 self.result.total_tax_amount = self.result.igst_amount
+                self.result.total_tax = self.result.igst_amount
             elif self.result.cgst_amount and self.result.sgst_amount:
                 self.result.total_tax_amount = self.result.cgst_amount + self.result.sgst_amount
+                self.result.total_tax = self.result.total_tax_amount
         
         # Calculate from line items if totals not found
         if not self.result.total_invoice_amount and self.result.line_items:
             self.result.subtotal_fee_amount = sum(
-                (item.fee_amount or 0) if isinstance(item, LineItem) else (item.get('fee_amount') or 0)
+                (item.fee_amount or item.taxable_amount or 0) if isinstance(item, LineItem) else (item.get('fee_amount') or item.get('taxable_amount') or 0)
                 for item in self.result.line_items
             )
+            self.result.subtotal = self.result.subtotal_fee_amount
             self.result.total_tax_amount = sum(
                 (item.total_tax_amount or 0) if isinstance(item, LineItem) else (item.get('total_tax_amount') or 0)
                 for item in self.result.line_items
             )
+            self.result.total_tax = self.result.total_tax_amount
             self.result.total_invoice_amount = self.result.subtotal_fee_amount + (self.result.total_tax_amount or 0)
+            self.result.grand_total = self.result.total_invoice_amount
