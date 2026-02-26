@@ -42,7 +42,8 @@ export const calculateSalaries = (attendanceData, employees, config, daysInMonth
       masterEmployee,
       config,
       daysInMonth,
-      attendanceData.manualHolidays || []
+      attendanceData.manualHolidays || [],
+      attendanceData  // Pass full attendance data for month/year check
     );
     
     results.push(result);
