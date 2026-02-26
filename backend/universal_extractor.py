@@ -229,6 +229,11 @@ TEMPLATE_ANCHORS = {
         'AARCM9332R',
         'TI/'
     ],
+    'MEESHO_CREDIT_NOTE': [
+        'meesho technologies',
+        'credit note',
+        'AARCM9332R'
+    ],
     'VMART_TAX_INVOICE': [
         'v-mart retail',
         'AABCV7206K',
@@ -243,6 +248,11 @@ TEMPLATE_ANCHORS = {
         'myntra designs',
         'AABCM1518R'
     ],
+    'MYNTRA_CREDIT_NOTE': [
+        'myntra designs',
+        'credit note',
+        'AABCM1518R'
+    ],
     'FASHNEAR_TAX_INVOICE': [
         'fashnear technologies',
         'AADCF8221E'
@@ -251,6 +261,16 @@ TEMPLATE_ANCHORS = {
         'fashnear technologies',
         'credit note',
         'CN/'
+    ],
+    'JIOMART_TAX_INVOICE': [
+        'reliance retail',
+        'jiomart',
+        'AAACR'
+    ],
+    'JIOMART_CREDIT_NOTE': [
+        'reliance retail',
+        'credit note',
+        'jiomart'
     ],
 }
 
