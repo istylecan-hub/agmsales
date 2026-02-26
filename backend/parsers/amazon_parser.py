@@ -17,14 +17,15 @@ class AmazonParser(BaseParser):
     def parse(self) -> NormalizedInvoice:
         """Parse Amazon invoice text"""
         self.result.source_platform = "Amazon"
+        self.result.platform_name = "Amazon"
         self.result.service_provider_name = "Amazon Seller Services Private Limited"
+        self.result.supplier_name = "Amazon Seller Services Private Limited"
         
         # Detect document type
-        if "credit note" in self.text.lower():
-            self.result.document_type = "CreditNote"
+        self.result.document_type = self.detect_document_type()
+        if self.result.document_type == "CreditNote":
             self.result.template_id = "AMAZON_CREDIT_NOTE"
         else:
-            self.result.document_type = "Invoice"
             self.result.template_id = "AMAZON_TAX_INVOICE"
         
         self._extract_invoice_number()
