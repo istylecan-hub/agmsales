@@ -30,7 +30,7 @@ except ImportError:
 from parsers import (
     BaseParser, NormalizedInvoice, LineItem, ValidationResult,
     AmazonParser, FlipkartParser, MeeshoParser, VMartParser,
-    AceVectorParser, MyntraParser, FashnearParser, GenericParser
+    AceVectorParser, MyntraParser, FashnearParser, JioMartParser, GenericParser
 )
 
 logger = logging.getLogger(__name__)
