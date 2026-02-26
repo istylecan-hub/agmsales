@@ -204,9 +204,11 @@ class AmazonParser(BaseParser):
             self._extract_line_items_from_details()
 
     def _extract_line_items_from_details(self):
-        """Extract from 'Details of Fees' section"""
+        """Extract from 'Details of Fees' section (handles credit notes)"""
+        is_credit_note = self.result.document_type == "CreditNote"
+        
         # Look for date-based entries
-        detail_pattern = r'(\d{2}/\d{2}/\d{4})\s+(\d{6})\s+([A-Za-z\s]+)\s+(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)'
+        detail_pattern = r'(\d{2}/\d{2}/\d{4})\s+(\d{6})\s+([A-Za-z\s]+)\s+[-]?(?:INR|Rs\.?)?\s*[-]?([\d,]+\.?\d*)'
         matches = re.findall(detail_pattern, self.text)
         
         # Aggregate by SAC code
@@ -223,16 +225,28 @@ class AmazonParser(BaseParser):
         
         for sac_code, data in sac_totals.items():
             fee_amount = data['fee']
-            igst_amount = round(fee_amount * 0.18, 2)
+            
+            # For credit notes, make negative
+            if is_credit_note:
+                fee_amount = -abs(fee_amount)
+            
+            igst_amount = round(abs(fee_amount) * 0.18, 2)
+            if is_credit_note:
+                igst_amount = -igst_amount
             
             self.result.line_items.append(LineItem(
                 category_code_or_hsn=sac_code,
+                service_code_or_hsn=sac_code,
+                description=data['description'] or self.get_sac_description(sac_code),
                 service_description=data['description'] or self.get_sac_description(sac_code),
+                taxable_amount=fee_amount,
                 fee_amount=fee_amount,
                 igst_amount=igst_amount,
                 total_tax_amount=igst_amount,
+                total_line_amount=fee_amount + igst_amount,
                 total_amount=fee_amount + igst_amount,
-                tax_rate_percent=18.0
+                tax_rate_percent=18.0,
+                is_negative=is_credit_note
             ))
 
     def _extract_totals(self):
