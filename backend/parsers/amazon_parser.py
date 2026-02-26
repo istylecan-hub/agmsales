@@ -123,14 +123,15 @@ class AmazonParser(BaseParser):
                     return
 
     def _extract_line_items(self):
-        """Extract line items from Amazon invoice"""
+        """Extract line items from Amazon invoice (handles negative for credit notes)"""
+        is_credit_note = self.result.document_type == "CreditNote"
+        
         # Pattern: SI No. SAC_CODE Description Tax Rate Amount
-        # Example: 1. 998599 Fixed Closing Fee INR 78.00
-        #          IGST 18.00% INR 14.04
+        # Example: 1. 998599 Fixed Closing Fee INR 78.00 or -INR 78.00
         
         # First, try to extract from the main invoice table
-        # Pattern matches: SAC code, description, amount
-        line_pattern = r'(\d{6})\s+([A-Za-z\s&]+?(?:Fee|Charge|Service)?)\s+(?:INR|Rs\.?)\s*([\d,]+\.?\d*)'
+        # Pattern matches: SAC code, description, amount (positive or negative)
+        line_pattern = r'(\d{6})\s+([A-Za-z\s&]+?(?:Fee|Charge|Service)?)\s+[-]?(?:INR|Rs\.?)\s*[-]?([\d,]+\.?\d*)'
         matches = re.findall(line_pattern, self.text)
         
         processed_sacs = set()
@@ -143,8 +144,12 @@ class AmazonParser(BaseParser):
             if sac_code in processed_sacs or not fee_amount:
                 continue
             
+            # For credit notes, make amounts negative
+            if is_credit_note:
+                fee_amount = -abs(fee_amount)
+            
             # Look for tax amount for this item
-            tax_pattern = rf'{sac_code}.*?(?:IGST|CGST|SGST)\s*(\d+\.?\d*)%.*?(?:INR|Rs\.?)\s*([\d,]+\.?\d*)'
+            tax_pattern = rf'{sac_code}.*?(?:IGST|CGST|SGST)\s*(\d+\.?\d*)%.*?[-]?(?:INR|Rs\.?)\s*[-]?([\d,]+\.?\d*)'
             tax_match = re.search(tax_pattern, self.text, re.IGNORECASE | re.DOTALL)
             
             igst_amount = None
@@ -156,6 +161,9 @@ class AmazonParser(BaseParser):
                 tax_rate = float(tax_match.group(1))
                 tax_amount = self.normalize_amount(tax_match.group(2))
                 
+                if is_credit_note and tax_amount:
+                    tax_amount = -abs(tax_amount)
+                
                 if "IGST" in self.text[tax_match.start():tax_match.end()].upper():
                     igst_amount = tax_amount
                 else:
@@ -164,21 +172,30 @@ class AmazonParser(BaseParser):
                     sgst_amount = tax_amount
             else:
                 # Calculate tax if not found
-                igst_amount = round(fee_amount * 0.18, 2)
+                tax_calc = round(abs(fee_amount) * 0.18, 2)
+                if is_credit_note:
+                    igst_amount = -tax_calc
+                else:
+                    igst_amount = tax_calc
             
             total_tax = igst_amount or ((cgst_amount or 0) + (sgst_amount or 0))
             total_amount = fee_amount + (total_tax or 0)
             
             self.result.line_items.append(LineItem(
                 category_code_or_hsn=sac_code,
+                service_code_or_hsn=sac_code,
+                description=description or self.get_sac_description(sac_code),
                 service_description=description or self.get_sac_description(sac_code),
+                taxable_amount=fee_amount,
                 fee_amount=fee_amount,
                 cgst_amount=cgst_amount,
                 sgst_amount=sgst_amount,
                 igst_amount=igst_amount,
                 total_tax_amount=total_tax,
+                total_line_amount=total_amount,
                 total_amount=total_amount,
-                tax_rate_percent=tax_rate
+                tax_rate_percent=tax_rate,
+                is_negative=is_credit_note
             ))
             processed_sacs.add(sac_code)
         
