@@ -633,5 +633,7 @@ def detect_platform(text: str) -> str:
         return 'Myntra'
     elif 'FASHNEAR' in template_id:
         return 'Fashnear'
+    elif 'JIOMART' in template_id:
+        return 'JioMart'
     
     return 'Unknown'
