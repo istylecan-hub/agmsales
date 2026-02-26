@@ -94,7 +94,7 @@ export const calculateSalaries = (attendanceData, employees, config, daysInMonth
  * 
  * 8. Total Salary = (Monthly Salary / Days in Month) × Total Payable Days
  */
-const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualHolidays = []) => {
+const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualHolidays = [], attendanceData = null) => {
   const dailyBreakdown = [];
   let presentDays = 0;
   let sundayWorkedDays = 0;
