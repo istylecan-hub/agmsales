@@ -343,6 +343,8 @@ TEMPLATE_PARSERS = {
     'MYNTRA_CREDIT_NOTE': MyntraParser,
     'FASHNEAR_TAX_INVOICE': FashnearParser,
     'FASHNEAR_CREDIT_NOTE': FashnearParser,
+    'JIOMART_TAX_INVOICE': JioMartParser,
+    'JIOMART_CREDIT_NOTE': JioMartParser,
     'UNKNOWN_GENERIC_GST': GenericParser,
 }
 
