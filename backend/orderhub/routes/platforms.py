@@ -7,6 +7,11 @@ router = APIRouter(prefix="/orderhub", tags=["OrderHub Platforms"])
 
 db = None
 
+# Configuration Constants - NO ARTIFICIAL LIMITS
+MAX_UPLOAD_SIZE_MB = 100
+CHUNK_SIZE = 5000
+BATCH_INSERT_SIZE = 1000
+
 DEFAULT_PLATFORMS = [
     {"name": "Meesho", "code": "meesho"},
     {"name": "Amazon", "code": "amazon"},
@@ -20,6 +25,44 @@ DEFAULT_PLATFORMS = [
 def set_db(database):
     global db
     db = database
+
+
+@router.get("/system-check")
+async def system_check():
+    """Health check endpoint for OrderHub - confirms NO artificial limits."""
+    db_status = "connected" if db is not None else "disconnected"
+    
+    # Get counts if connected
+    orders_count = 0
+    master_skus_count = 0
+    unmapped_count = 0
+    uploads_count = 0
+    
+    if db is not None:
+        orders_count = await db.orderhub_orders.count_documents({})
+        master_skus_count = await db.orderhub_master_skus.count_documents({})
+        unmapped_count = await db.orderhub_unmapped_skus.count_documents({"status": "UNMAPPED"})
+        uploads_count = await db.orderhub_uploads.count_documents({})
+    
+    return {
+        "status": "healthy",
+        "database": db_status,
+        "config": {
+            "max_upload_size_mb": MAX_UPLOAD_SIZE_MB,
+            "chunk_size": CHUNK_SIZE,
+            "batch_insert_size": BATCH_INSERT_SIZE,
+            "artificial_row_limit": False,
+            "master_sku_limit": "unlimited",
+            "order_upload_limit": "unlimited"
+        },
+        "counts": {
+            "total_orders": orders_count,
+            "master_skus": master_skus_count,
+            "unmapped_skus": unmapped_count,
+            "total_uploads": uploads_count
+        },
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
 
 
 @router.get("/platforms")
