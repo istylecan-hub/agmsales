@@ -31,8 +31,6 @@ async def upload_orders(file: UploadFile = File(...), platform: str = Query(...)
     """Upload order file - NO ROW LIMITS, chunked processing"""
     from ..services.file_processor import process_order_file_chunked
     
-    start_time = time.time()
-    
     if db is None:
         raise HTTPException(status_code=500, detail="Database not connected")
     

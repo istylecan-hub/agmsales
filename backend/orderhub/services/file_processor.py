@@ -32,7 +32,6 @@ async def process_order_file_chunked(db, file_id: str, platform: str, account: s
         total_rows = 0
         rows_inserted = 0
         duplicates = 0
-        errors_list = []
         
         # Read file in chunks for memory efficiency
         file_ext = file_path.suffix.lower()
