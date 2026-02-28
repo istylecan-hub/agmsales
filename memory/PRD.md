@@ -1,11 +1,12 @@
-# Salary Calculator + Invoice Data Extractor Application
+# Multi-Module ERP Application (Salary + Invoice + OrderHub)
 
 ## Original Problem Statement
-A combined application for:
+A comprehensive ERP application combining:
 1. **Salary Calculator Module**: Employee management, attendance processing from Excel, salary calculation with configurable rules, monthly salary history
-2. **Invoice Extractor Module**: Upload PDF invoices from multiple e-commerce platforms, extract key data, export to Excel
+2. **Invoice Extractor Module**: Upload PDF invoices from multiple e-commerce platforms (Amazon, Flipkart, JioMart, etc.), extract key data with GST tax merging, export to Excel
+3. **OrderHub Module**: E-commerce order consolidation system for multi-platform order management, SKU mapping, and reporting
 
-## Current Status: In Progress
+## Current Status: Active Development
 
 ---
 
@@ -55,6 +56,30 @@ A combined application for:
 | V-Mart | COM/2526/IN10961 | 2,926.29 | 1 | ✅ |
 | AceVector | 2526HR/IN/138081 | 16,842.97 | 1 | ✅ |
 
+### OrderHub Module (Complete - Feb 28, 2026)
+- [x] **Core Features**:
+  - Dashboard with enterprise-level analytics
+  - Multi-platform order upload (Flipkart, Amazon, etc.)
+  - Order reports with filtering
+  - Master SKU management
+  - Unmapped SKU tracking and resolution
+  
+- [x] **Performance Optimizations**:
+  - Chunked file processing (5000 rows/chunk)
+  - Bulk database inserts (1000 batch)
+  - 100MB file upload limit
+  - No artificial row limits
+  
+- [x] **Admin Controls** (Completed Feb 28, 2026):
+  - `/api/orderhub/admin/data-summary` - Data overview
+  - `/api/orderhub/admin/reset-orders` - Reset order data (preserves master SKUs)
+  - `/api/orderhub/admin/reset-master` - Reset master SKU mappings
+  - `/api/orderhub/admin/delete-upload/{file_id}` - Delete specific upload
+  - `/api/orderhub/admin/reset-all` - Complete nuclear reset
+  - `/api/orderhub/admin/remap-unmapped` - Re-map SKUs
+  - All destructive endpoints have `confirm=true` safety mechanism
+  - Frontend admin page at `/orderhub/admin`
+
 ---
 
 ## API Endpoints
@@ -79,25 +104,39 @@ A combined application for:
 ```
 /app/
 ├── backend/
-│   ├── server.py                  # FastAPI app, routes
+│   ├── server.py                  # FastAPI app, all routes integrated
 │   ├── invoice_extractor.py       # Job management, export logic
 │   ├── universal_extractor.py     # 4-stage hybrid pipeline
-│   └── parsers/
-│       ├── __init__.py
-│       ├── base_parser.py         # BaseParser, NormalizedInvoice
-│       ├── amazon_parser.py
-│       ├── flipkart_parser.py
-│       ├── meesho_parser.py
-│       ├── vmart_parser.py
-│       ├── acevector_parser.py
-│       ├── myntra_parser.py
-│       ├── fashnear_parser.py
-│       └── generic_parser.py
+│   ├── parsers/                   # Invoice parsers
+│   │   ├── base_parser.py         
+│   │   ├── amazon_parser.py
+│   │   ├── flipkart_parser.py
+│   │   ├── jiomart_parser.py
+│   │   └── ... (generic, meesho, vmart, etc.)
+│   └── orderhub/                  # OrderHub module
+│       ├── models.py
+│       ├── services/
+│       │   ├── file_processor.py  # Chunked processing
+│       │   └── unmapped.py        # SKU mapping logic
+│       └── routes/
+│           ├── admin.py           # Admin/reset endpoints
+│           ├── upload.py
+│           ├── dashboard.py
+│           └── ... (8 route files total)
 ├── frontend/
 │   └── src/
-│       └── pages/
-│           ├── InvoiceExtractor.jsx
-│           └── SalaryReport.jsx
+│       ├── pages/
+│       │   ├── InvoiceExtractor.jsx
+│       │   ├── SalaryReport.jsx
+│       │   └── orderhub/
+│       │       ├── Dashboard.jsx
+│       │       ├── Upload.jsx
+│       │       ├── Reports.jsx
+│       │       ├── MasterSKUs.jsx
+│       │       ├── UnmappedSKUs.jsx
+│       │       └── Admin.jsx      # NEW - Admin controls
+│       └── components/
+│           └── Layout.jsx         # Navigation with OrderHub links
 ```
 
 ---
@@ -105,22 +144,22 @@ A combined application for:
 ## Prioritized Backlog
 
 ### P0 - Critical
-- [ ] Fix CORS error for production deployment
-- [ ] Test with user's actual invoice samples
+- [x] ~~OrderHub Admin Controls~~ (Completed Feb 28, 2026)
+- [ ] Verify Salary Module fix (future dates not counted as absent)
 
 ### P1 - High
-- [ ] Deploy updated invoice extractor
-- [ ] Add confidence score indicator in UI
+- [ ] Retry deployment (MongoDB auth error is platform issue, not code)
+- [ ] Full end-to-end testing before deployment
 
-### P2 - Low
+### P2 - Low  
 - [ ] Fix navigation visibility UI glitch
 - [ ] Add more platform templates as needed
 
 ---
 
 ## Known Issues
-1. **CORS Error**: Production deployment blocked by CORS - middleware fix applied but needs verification
-2. **MongoDB**: Currently using local MongoDB; ensure MONGO_URL is configured for production
+1. **Deployment MongoDB Auth Error**: Platform-level issue with Emergent deployment connecting to MongoDB Atlas (SCRAM-SHA-1 auth error). Not a code issue - retry deployment or contact Emergent support.
+2. **Salary Module Fix Pending Verification**: Fix applied to prevent future dates from being counted as absent - awaiting user verification.
 
 ---
 
