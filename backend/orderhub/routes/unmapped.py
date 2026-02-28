@@ -17,7 +17,7 @@ def set_db(database):
 
 
 @router.get("/list")
-async def get_unmapped(search: Optional[str] = None, platform: Optional[str] = None, status: Optional[str] = None, limit: int = Query(default=100, le=1000)):
+async def get_unmapped(search: Optional[str] = None, platform: Optional[str] = None, status: Optional[str] = None, limit: int = Query(default=1000, le=50000)):
     if db is None:
         return []
     query = {}

@@ -13,7 +13,7 @@ def set_db(database):
 
 
 @router.get("/sku")
-async def report_by_sku(start_date: Optional[str] = None, end_date: Optional[str] = None, platform: Optional[str] = None, limit: int = Query(default=100, le=1000)):
+async def report_by_sku(start_date: Optional[str] = None, end_date: Optional[str] = None, platform: Optional[str] = None, limit: int = Query(default=1000, le=50000)):
     if db is None:
         return []
     match = {}
@@ -34,7 +34,7 @@ async def report_by_sku(start_date: Optional[str] = None, end_date: Optional[str
 
 
 @router.get("/master-sku")
-async def report_by_master_sku(start_date: Optional[str] = None, end_date: Optional[str] = None, platform: Optional[str] = None, limit: int = Query(default=100, le=1000)):
+async def report_by_master_sku(start_date: Optional[str] = None, end_date: Optional[str] = None, platform: Optional[str] = None, limit: int = Query(default=1000, le=50000)):
     if db is None:
         return []
     match = {}
