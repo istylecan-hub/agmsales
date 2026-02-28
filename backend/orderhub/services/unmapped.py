@@ -73,3 +73,95 @@ async def remap_unmapped_skus(db) -> Dict[str, int]:
             total_mapped += 1
     
     return {"total_unmapped": total_unmapped, "total_mapped_now": total_mapped, "remaining_unmapped": total_unmapped - total_mapped}
+
+
+async def rebuild_unmapped_from_orders(db) -> Dict[str, int]:
+    """Rebuild unmapped SKUs collection from all UNMAPPED orders."""
+    # Delete all existing unmapped SKUs
+    await db.orderhub_unmapped_skus.delete_many({})
+    
+    # Get master SKUs for suggestion matching
+    master_skus = {doc["sku"].lower(): doc["master_sku"] async for doc in db.orderhub_master_skus.find({}, {"_id": 0})}
+    
+    # Aggregate all UNMAPPED orders by SKU and platform
+    pipeline = [
+        {"$match": {"master_sku": "UNMAPPED"}},
+        {"$group": {
+            "_id": {"sku": "$sku", "platform": "$platform"},
+            "total_qty": {"$sum": "$qty"},
+            "total_revenue": {"$sum": "$total_amount"},
+            "first_seen": {"$min": "$order_date"},
+            "last_seen": {"$max": "$order_date"}
+        }}
+    ]
+    
+    created = 0
+    now = datetime.now(timezone.utc).isoformat()
+    
+    async for group in db.orderhub_orders.aggregate(pipeline):
+        sku = group["_id"]["sku"]
+        platform = group["_id"]["platform"]
+        
+        # Find fuzzy match for suggestion
+        suggested = await find_fuzzy_match(sku, master_skus)
+        
+        await db.orderhub_unmapped_skus.insert_one({
+            "id": str(uuid.uuid4()),
+            "sku": sku,
+            "platform": platform,
+            "first_seen_at": group["first_seen"] or now,
+            "last_seen_at": group["last_seen"] or now,
+            "total_qty": group["total_qty"],
+            "total_revenue": group["total_revenue"],
+            "status": "UNMAPPED",
+            "mapped_master_sku": None,
+            "suggested_master_sku": suggested["master_sku"] if suggested else None,
+            "suggestion_confidence": suggested["confidence"] if suggested else None
+        })
+        created += 1
+    
+    return {"created": created, "status": "success"}
+
+
+async def refresh_unmapped_counts(db) -> Dict[str, int]:
+    """Refresh counts for existing unmapped SKUs based on current orders."""
+    updated = 0
+    
+    # Get all unmapped SKU entries
+    async for unmapped in db.orderhub_unmapped_skus.find({"status": "UNMAPPED"}, {"_id": 0}):
+        sku = unmapped.get("sku")
+        platform = unmapped.get("platform")
+        
+        if not sku:
+            continue
+        
+        # Count orders matching this SKU
+        query = {"sku": sku, "master_sku": "UNMAPPED"}
+        if platform:
+            query["platform"] = platform
+            
+        pipeline = [
+            {"$match": query},
+            {"$group": {
+                "_id": None,
+                "total_qty": {"$sum": "$qty"},
+                "total_revenue": {"$sum": "$total_amount"}
+            }}
+        ]
+        
+        result = await db.orderhub_orders.aggregate(pipeline).to_list(1)
+        
+        if result:
+            await db.orderhub_unmapped_skus.update_one(
+                {"id": unmapped["id"]},
+                {"$set": {
+                    "total_qty": result[0].get("total_qty", 0),
+                    "total_revenue": result[0].get("total_revenue", 0)
+                }}
+            )
+            updated += 1
+        else:
+            # No orders found, remove this unmapped entry
+            await db.orderhub_unmapped_skus.delete_one({"id": unmapped["id"]})
+    
+    return {"updated": updated, "status": "success"}
