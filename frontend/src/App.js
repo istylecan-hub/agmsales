@@ -16,6 +16,7 @@ import OrderHubUpload from './pages/orderhub/Upload';
 import OrderHubReports from './pages/orderhub/Reports';
 import OrderHubMasterSKUs from './pages/orderhub/MasterSKUs';
 import OrderHubUnmappedSKUs from './pages/orderhub/UnmappedSKUs';
+import OrderHubAdmin from './pages/orderhub/Admin';
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
             <Route path="/orderhub/reports" element={<OrderHubReports />} />
             <Route path="/orderhub/master-skus" element={<OrderHubMasterSKUs />} />
             <Route path="/orderhub/unmapped" element={<OrderHubUnmappedSKUs />} />
+            <Route path="/orderhub/admin" element={<OrderHubAdmin />} />
           </Routes>
         </Layout>
         <Toaster 

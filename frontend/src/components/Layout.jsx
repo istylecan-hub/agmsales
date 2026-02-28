@@ -21,6 +21,7 @@ import {
   Tags,
   AlertCircle,
   BarChart3,
+  Shield,
 } from 'lucide-react';
 
 export const Layout = ({ children }) => {
@@ -42,6 +43,7 @@ export const Layout = ({ children }) => {
     { path: '/orderhub/reports', icon: BarChart3, label: 'Order Reports' },
     { path: '/orderhub/master-skus', icon: Tags, label: 'Master SKUs' },
     { path: '/orderhub/unmapped', icon: AlertCircle, label: 'Unmapped SKUs' },
+    { path: '/orderhub/admin', icon: Shield, label: 'Admin Controls' },
   ];
 
   const NavItem = ({ item, mobile = false }) => {
