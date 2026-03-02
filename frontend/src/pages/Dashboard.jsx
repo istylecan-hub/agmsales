@@ -1,9 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { storage } from '../utils/storage';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
+import { toast } from 'sonner';
 import {
   Users,
   IndianRupee,
@@ -13,6 +15,8 @@ import {
   Upload,
   FileSpreadsheet,
   TrendingUp,
+  Trash2,
+  RefreshCw,
 } from 'lucide-react';
 
 export default function Dashboard() {
