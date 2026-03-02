@@ -196,7 +196,7 @@ export default function Dashboard() {
       </Card>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="hover:shadow-md transition-all duration-200" data-testid="quick-action-employees">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -226,6 +226,31 @@ export default function Dashboard() {
               <Button onClick={() => navigate('/attendance')} className="gap-2" data-testid="go-to-attendance-btn">
                 Upload
                 <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Reset Salary Data - Important for fresh calculation */}
+        <Card className="hover:shadow-md transition-all duration-200 border-red-500/30 bg-red-500/5" data-testid="quick-action-reset">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-lg text-red-600">Reset Salary Data</h3>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Clear cache for fresh calculation
+                </p>
+              </div>
+              <Button 
+                variant="destructive" 
+                onClick={handleResetSalaryData} 
+                className="gap-2" 
+                data-testid="reset-salary-btn"
+              >
+                <Trash2 className="w-4 h-4" />
+                Reset
               </Button>
             </div>
           </CardContent>
