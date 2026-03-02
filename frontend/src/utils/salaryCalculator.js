@@ -472,11 +472,9 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
   const totalSalary = perDaySalary * totalPayableDays;
   
   // For display purposes, calculate component breakdowns
-  const baseSalary = perDaySalary * presentDays;  // Weekday presence
-  const sundayAmount = perDaySalary * sundayWorkedDays;  // Sunday working (extra)
-  const holidayAmount = perDaySalary * holidayWorkedDays;  // Holiday working (extra)
-  const woAmount = perDaySalary * effectiveWO;  // Paid week offs
-  const hlAmount = perDaySalary * effectiveHL;  // Paid holidays
+  const baseSalary = perDaySalary * presentDaysCalculated;
+  const sundayAmount = perDaySalary * sundayWorkedDays;
+  const holidayAmount = perDaySalary * holidayWorkedDays;
   const otAmount = perDaySalary * otDays;
   
   // Short hours tracking (for reference)
@@ -489,7 +487,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
     monthlySalary: masterEmp.salary,
     daysInMonth,
     perDaySalary: Math.round(perDaySalary * 100) / 100,
-    presentDays: Math.round(presentDays * 100) / 100, // Actual weekdays worked
+    presentDays: Math.round(presentDaysCalculated * 100) / 100, // Days in Month - Absent - Sandwich
     sundayWorked: Math.round(sundayWorkedDays * 100) / 100,
     holidayWorked: Math.round(holidayWorkedDays * 100) / 100,
     rawWO: rawWODays,
@@ -497,7 +495,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
     effectiveWO,
     effectiveHL,
     sandwichDays,
-    paidDays: Math.round(totalPayableDays * 100) / 100, // Total payable days
+    paidDays: Math.round(presentDaysCalculated * 100) / 100, // Same as presentDays for clarity
     absentDays,
     otMinutes: totalOTMinutes,
     otHours: Math.round(otHours * 100) / 100,
@@ -511,7 +509,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
     baseSalary: Math.round(baseSalary),
     sundayAmount: Math.round(sundayAmount),
     holidayAmount: Math.round(holidayAmount),
-    grossSalary: Math.round(baseSalary + sundayAmount + holidayAmount + woAmount + hlAmount),
+    grossSalary: Math.round(baseSalary + sundayAmount + holidayAmount),
     otAmount: Math.round(otAmount),
     totalSalary: Math.round(totalSalary),
     halfDayCount,
