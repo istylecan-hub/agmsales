@@ -489,7 +489,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
     monthlySalary: masterEmp.salary,
     daysInMonth,
     perDaySalary: Math.round(perDaySalary * 100) / 100,
-    presentDays: Math.round(presentDaysCalculated * 100) / 100, // Days in Month - Absent - Sandwich
+    presentDays: Math.round(presentDays * 100) / 100, // Actual weekdays worked
     sundayWorked: Math.round(sundayWorkedDays * 100) / 100,
     holidayWorked: Math.round(holidayWorkedDays * 100) / 100,
     rawWO: rawWODays,
@@ -497,7 +497,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
     effectiveWO,
     effectiveHL,
     sandwichDays,
-    paidDays: Math.round(presentDaysCalculated * 100) / 100, // Same as presentDays for clarity
+    paidDays: Math.round(totalPayableDays * 100) / 100, // Total payable days
     absentDays,
     otMinutes: totalOTMinutes,
     otHours: Math.round(otHours * 100) / 100,
@@ -511,7 +511,7 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
     baseSalary: Math.round(baseSalary),
     sundayAmount: Math.round(sundayAmount),
     holidayAmount: Math.round(holidayAmount),
-    grossSalary: Math.round(baseSalary + sundayAmount + holidayAmount),
+    grossSalary: Math.round(baseSalary + sundayAmount + holidayAmount + woAmount + hlAmount),
     otAmount: Math.round(otAmount),
     totalSalary: Math.round(totalSalary),
     halfDayCount,
