@@ -250,10 +250,14 @@ export default function AttendanceUpload() {
   };
 
   const handleReset = () => {
+    // Clear all attendance related state
     setPreviewData(null);
     setMatchStatus(null);
     setAttendanceData(null);
     setManualHolidays([]);
+    // Also clear from localStorage
+    localStorage.removeItem('agm_attendance');
+    toast.success('Attendance data cleared! Now you can upload new file.');
   };
 
   // Holiday management functions
