@@ -345,9 +345,20 @@ export default function SalaryReport() {
   if (!calculationResults) {
     return (
       <div className="space-y-6" data-testid="salary-report-page">
-        <div>
-          <h1 className="text-4xl font-bold tracking-tight font-[Manrope]">{t('reports')}</h1>
-          <p className="text-muted-foreground mt-1">View and download salary reports</p>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight font-[Manrope]">{t('reports')}</h1>
+            <p className="text-muted-foreground mt-1">View and download salary reports</p>
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={() => setIsHistoryModalOpen(true)} 
+            className="gap-2"
+            data-testid="view-history-btn-empty"
+          >
+            <History className="w-4 h-4" />
+            Salary History ({salaryHistory.length})
+          </Button>
         </div>
         
         <Alert data-testid="no-results-alert">
@@ -364,6 +375,144 @@ export default function SalaryReport() {
             </Button>
           </AlertDescription>
         </Alert>
+
+        {/* Salary History Section - Always visible */}
+        {salaryHistory.length > 0 && (
+          <Card data-testid="saved-salary-history-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="w-5 h-5 text-purple-500" />
+                Saved Salary Records
+                <Badge variant="secondary">{salaryHistory.length} months</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Previously saved salary calculations. Click delete (🗑️) to remove a record before uploading new attendance for that month.
+              </p>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Month/Year</TableHead>
+                      <TableHead className="text-center">Employees</TableHead>
+                      <TableHead className="text-right">Total Payout</TableHead>
+                      <TableHead className="text-center">Saved On</TableHead>
+                      <TableHead className="text-center">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {salaryHistory.map((record) => (
+                      <TableRow key={record.record_id}>
+                        <TableCell className="font-medium">
+                          {getMonthName(record.month)} {record.year}
+                        </TableCell>
+                        <TableCell className="text-center">{record.employeeCount}</TableCell>
+                        <TableCell className="text-right font-mono">
+                          ₹{record.totalPayout?.toLocaleString() || 0}
+                        </TableCell>
+                        <TableCell className="text-center text-muted-foreground text-sm">
+                          {record.savedAt ? new Date(record.savedAt).toLocaleDateString() : '-'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleViewHistoryRecord(record)}
+                              title="View Details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteHistoryRecord(record)}
+                              title="Delete Record"
+                              className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* History Modal - Reuse existing */}
+        <Dialog open={isHistoryModalOpen} onOpenChange={setIsHistoryModalOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh]" data-testid="history-modal">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <History className="w-5 h-5" />
+                Salary History
+              </DialogTitle>
+              <DialogDescription>
+                View, compare, and manage saved salary records
+              </DialogDescription>
+            </DialogHeader>
+            
+            <ScrollArea className="max-h-[400px]">
+              {isLoadingHistory ? (
+                <div className="text-center py-8 text-muted-foreground">Loading...</div>
+              ) : salaryHistory.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No salary records saved yet
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Month/Year</TableHead>
+                      <TableHead className="text-center">Employees</TableHead>
+                      <TableHead className="text-right">Total Payout</TableHead>
+                      <TableHead className="text-center">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {salaryHistory.map((record) => (
+                      <TableRow key={record.record_id}>
+                        <TableCell className="font-medium">
+                          {getMonthName(record.month)} {record.year}
+                        </TableCell>
+                        <TableCell className="text-center">{record.employeeCount}</TableCell>
+                        <TableCell className="text-right font-mono">
+                          ₹{record.totalPayout?.toLocaleString() || 0}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleViewHistoryRecord(record)}
+                              title="View Details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteHistoryRecord(record)}
+                              title="Delete"
+                              className="text-red-500 hover:text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
