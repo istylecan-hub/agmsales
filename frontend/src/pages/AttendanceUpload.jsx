@@ -141,6 +141,13 @@ export default function AttendanceUpload() {
       return;
     }
 
+    // CRITICAL: Clear ALL old attendance data before processing new file
+    localStorage.removeItem('agm_attendance');
+    localStorage.removeItem('agm_calculation');
+    setAttendanceData(null);
+    setPreviewData(null);
+    setMatchStatus(null);
+    
     setIsProcessing(true);
     setProcessingProgress(10);
 
