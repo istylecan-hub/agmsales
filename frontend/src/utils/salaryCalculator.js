@@ -449,24 +449,14 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
   // Per Day Salary = Monthly Salary / Days in Month (always use full month for per day rate)
   const perDaySalary = masterEmp.salary / daysInMonth;
   
-  // CORRECTED CALCULATION:
-  // Present Days = Days employee actually came to work (excluding Sundays they worked)
-  // This is already tracked in 'presentDays' variable during daily processing
-  // 
-  // The correct formula should be:
-  // Total Payable = Present Days (weekdays worked) + Sunday Working + Holiday Working + OT Days + Effective WO + Effective HL
-  // 
-  // Where:
-  // - presentDays = weekdays employee came (already calculated)
-  // - sundayWorkedDays = Sundays employee came (already calculated)
-  // - effectiveWO = Sundays employee didn't come but gets paid (not sandwiched)
-  // - effectiveHL = Holidays employee didn't come but gets paid (not sandwiched)
+  // PRESENT DAYS = Effective Days in Month - Absent Days - Sandwich Days
+  // If no absent and no sandwich: Present = effective days
+  // Sunday NOT working is NOT absence - it's paid WO (unless sandwiched)
+  const presentDaysCalculated = effectiveDaysInMonth - absentDays - sandwichDays;
   
-  // Total paid days = worked days + paid leave days
-  const totalPaidDays = presentDays + sundayWorkedDays + holidayWorkedDays + effectiveWO + effectiveHL + otDays - sandwichDays;
-  
-  // TOTAL PAYABLE DAYS
-  const totalPayableDays = totalPaidDays;
+  // TOTAL PAYABLE DAYS = Present Days + Sunday Working + Holiday Working + OT Days
+  // Sunday/Holiday working is EXTRA pay on top of base salary
+  const totalPayableDays = presentDaysCalculated + sundayWorkedDays + holidayWorkedDays + otDays;
   
   // Total Salary = Per Day Salary × Total Payable Days
   const totalSalary = perDaySalary * totalPayableDays;
