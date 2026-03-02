@@ -472,9 +472,11 @@ const calculateEmployeeSalary = (attEmp, masterEmp, config, daysInMonth, manualH
   const totalSalary = perDaySalary * totalPayableDays;
   
   // For display purposes, calculate component breakdowns
-  const baseSalary = perDaySalary * presentDaysCalculated;
-  const sundayAmount = perDaySalary * sundayWorkedDays;
-  const holidayAmount = perDaySalary * holidayWorkedDays;
+  const baseSalary = perDaySalary * presentDays;  // Weekday presence
+  const sundayAmount = perDaySalary * sundayWorkedDays;  // Sunday working (extra)
+  const holidayAmount = perDaySalary * holidayWorkedDays;  // Holiday working (extra)
+  const woAmount = perDaySalary * effectiveWO;  // Paid week offs
+  const hlAmount = perDaySalary * effectiveHL;  // Paid holidays
   const otAmount = perDaySalary * otDays;
   
   // Short hours tracking (for reference)
