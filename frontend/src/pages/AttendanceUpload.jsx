@@ -483,6 +483,28 @@ export default function AttendanceUpload() {
         <>
           {/* Preview Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Clear Attendance Alert */}
+            <Card className="md:col-span-4 border-red-500/30 bg-red-500/5" data-testid="clear-attendance-alert">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
+                  <div>
+                    <p className="font-medium">Current Attendance: {['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][selectedMonth]} {selectedYear}</p>
+                    <p className="text-sm text-muted-foreground">Naya attendance upload karne ke liye pehle current data clear karein</p>
+                  </div>
+                </div>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleReset}
+                  className="gap-2"
+                  data-testid="clear-attendance-btn"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Clear & Upload New
+                </Button>
+              </CardContent>
+            </Card>
+            
             <Card data-testid="employees-detected-card">
               <CardContent className="p-6 flex items-center gap-4">
                 <div className="p-3 bg-blue-500/10 rounded-xl">
