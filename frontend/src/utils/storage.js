@@ -168,4 +168,17 @@ export const storage = {
       return false;
     }
   },
+  
+  // Clear only salary module data (attendance + calculation)
+  clearSalaryData: () => {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.ATTENDANCE_DATA);
+      localStorage.removeItem(STORAGE_KEYS.LAST_CALCULATION);
+      console.log('[Storage] Cleared salary module data');
+      return true;
+    } catch (e) {
+      console.error('Error clearing salary data:', e);
+      return false;
+    }
+  },
 };
