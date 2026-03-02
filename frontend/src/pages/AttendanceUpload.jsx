@@ -128,6 +128,35 @@ export default function AttendanceUpload() {
     }
   }, [attendanceData, employees, previewData]);
 
+  // Update attendanceData when month/year changes (to recalculate daysInMonth)
+  useEffect(() => {
+    if (attendanceData && attendanceData.employees && attendanceData.employees.length > 0) {
+      const newDaysInMonth = getDaysInMonth(selectedMonth, selectedYear);
+      
+      // Only update if daysInMonth actually changed
+      if (attendanceData.daysInMonth !== newDaysInMonth || 
+          attendanceData.selectedMonth !== selectedMonth ||
+          attendanceData.selectedYear !== selectedYear) {
+        
+        // Filter dailyData to only include days within the correct month length
+        const correctedEmployees = attendanceData.employees.map(emp => ({
+          ...emp,
+          dailyData: emp.dailyData.filter(day => day.day <= newDaysInMonth)
+        }));
+        
+        setAttendanceData({
+          ...attendanceData,
+          employees: correctedEmployees,
+          daysInMonth: newDaysInMonth,
+          selectedMonth: selectedMonth,
+          selectedYear: selectedYear,
+        });
+        
+        toast.info(`Month changed: ${newDaysInMonth} days in ${['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][selectedMonth]} ${selectedYear}`);
+      }
+    }
+  }, [selectedMonth, selectedYear]);
+
   const processFile = async (file) => {
     if (!file) return;
     
