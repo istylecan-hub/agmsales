@@ -20,8 +20,26 @@ import {
 } from 'lucide-react';
 
 export default function Dashboard() {
-  const { t, employees, calculationResults, attendanceData } = useApp();
+  const { t, employees, calculationResults, attendanceData, setAttendanceData, setCalculationResults } = useApp();
   const navigate = useNavigate();
+
+  // Reset all salary module data (attendance + calculation)
+  const handleResetSalaryData = () => {
+    if (!window.confirm('⚠️ Kya aap sure ho?\n\nYe action se:\n- Current attendance data clear ho jayega\n- Current calculation clear ho jayega\n- Saved salary history NAHI delete hogi\n\nNaya attendance upload karne ke baad fresh calculation hogi.')) {
+      return;
+    }
+    
+    // Clear localStorage
+    localStorage.removeItem('agm_attendance');
+    localStorage.removeItem('agm_calculation');
+    
+    // Clear React state
+    setAttendanceData(null);
+    setCalculationResults(null);
+    
+    toast.success('✅ Salary data reset ho gaya! Ab naya attendance upload karo.');
+    navigate('/attendance');
+  };
 
   const stats = [
     {
