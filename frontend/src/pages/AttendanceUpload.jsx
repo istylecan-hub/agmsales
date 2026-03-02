@@ -189,10 +189,27 @@ export default function AttendanceUpload() {
         inMasterNotInAttendance,
         matchedCount: parsed.employees.length - inAttendanceNotInMaster.length,
       });
-      setAttendanceData(parsed);
+      
+      // CRITICAL FIX: Use selected month's days, not Excel file's detected days
+      // Excel template might have 31 columns but Feb only has 28 days
+      const actualDaysInMonth = getDaysInMonth(selectedMonth, selectedYear);
+      
+      // Filter out days beyond actual month length from dailyData
+      const correctedEmployees = parsed.employees.map(emp => ({
+        ...emp,
+        dailyData: emp.dailyData.filter(day => day.day <= actualDaysInMonth)
+      }));
+      
+      setAttendanceData({
+        ...parsed,
+        employees: correctedEmployees,
+        daysInMonth: actualDaysInMonth,  // Use correct days for selected month
+        selectedMonth: selectedMonth,
+        selectedYear: selectedYear,
+      });
       setManualHolidays([]); // Reset holidays for new file
       
-      toast.success(`Parsed ${parsed.totalEmployees} employees for ${parsed.daysInMonth} days`);
+      toast.success(`Parsed ${parsed.totalEmployees} employees for ${actualDaysInMonth} days (${['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][selectedMonth]} ${selectedYear})`);
     } catch (error) {
       toast.error(`Failed to parse file: ${error.message}`);
       console.error('Parse error:', error);
