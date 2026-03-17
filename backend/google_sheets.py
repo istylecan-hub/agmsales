@@ -1,34 +1,22 @@
-# Google Sheets OAuth Integration for Advance Management
+# Google Sheets Service Account Integration for Advance Management
 import os
 import json
-import warnings
 from datetime import datetime, timezone, timedelta
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Request, UploadFile, File
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
-from google_auth_oauthlib.flow import Flow
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from google.auth.transport.requests import Request as GoogleRequest
-from google.oauth2.credentials import Credentials
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/google-sheets", tags=["google-sheets"])
 
 # Will be set from server.py
 db = None
 
-# OAuth Configuration - can be loaded from env or uploaded JSON
-GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
-GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://multimodule-erp-1.preview.emergentagent.com")
-REDIRECT_URI = f"{FRONTEND_URL}/api/google-sheets/callback"
-
-SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets.readonly",
-    "openid",
-    "https://www.googleapis.com/auth/userinfo.email",
-    "https://www.googleapis.com/auth/userinfo.profile"
-]
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 
 class SheetConfig(BaseModel):
     spreadsheetId: str
@@ -39,70 +27,30 @@ def set_db(database):
     global db
     db = database
 
-async def get_oauth_config():
-    """Get OAuth config from database (uploaded JSON) or environment"""
-    config = await db.oauth_config.find_one({"type": "google_sheets"})
-    if config and config.get("client_id"):
-        return {
-            "client_id": config["client_id"],
-            "client_secret": config["client_secret"],
-            "redirect_uri": config.get("redirect_uri", REDIRECT_URI)
-        }
-    # Fallback to environment variables
-    if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
-        return {
-            "client_id": GOOGLE_CLIENT_ID,
-            "client_secret": GOOGLE_CLIENT_SECRET,
-            "redirect_uri": REDIRECT_URI
-        }
-    return None
-
-async def get_flow():
-    """Create OAuth flow from stored config"""
-    config = await get_oauth_config()
-    if not config:
-        raise HTTPException(status_code=400, detail="Google OAuth not configured. Please upload credentials JSON first.")
-    
-    return Flow.from_client_config(
-        {
-            "web": {
-                "client_id": config["client_id"],
-                "client_secret": config["client_secret"],
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [config["redirect_uri"]]
-            }
-        },
-        scopes=SCOPES,
-        redirect_uri=config["redirect_uri"]
-    )
-
-@router.post("/upload-credentials")
-async def upload_credentials(file: UploadFile = File(...)):
-    """Upload Google OAuth credentials JSON file"""
+@router.post("/upload-service-account")
+async def upload_service_account(file: UploadFile = File(...)):
+    """Upload Google Service Account JSON key file"""
     try:
         content = await file.read()
         data = json.loads(content)
         
-        # Handle both "web" and "installed" type credentials
-        creds = data.get("web") or data.get("installed")
-        if not creds:
-            raise HTTPException(status_code=400, detail="Invalid credentials file format")
+        # Validate service account JSON
+        required_fields = ["type", "project_id", "private_key", "client_email"]
+        for field in required_fields:
+            if field not in data:
+                raise HTTPException(status_code=400, detail=f"Missing field: {field}")
         
-        client_id = creds.get("client_id")
-        client_secret = creds.get("client_secret")
-        
-        if not client_id or not client_secret:
-            raise HTTPException(status_code=400, detail="Missing client_id or client_secret in JSON")
+        if data["type"] != "service_account":
+            raise HTTPException(status_code=400, detail="Invalid file type. Need service_account JSON")
         
         # Save to database
-        await db.oauth_config.update_one(
+        await db.service_account.update_one(
             {"type": "google_sheets"},
             {
                 "$set": {
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                    "redirect_uri": REDIRECT_URI,
+                    "credentials": data,
+                    "client_email": data["client_email"],
+                    "project_id": data["project_id"],
                     "uploaded_at": datetime.now(timezone.utc)
                 }
             },
@@ -111,154 +59,33 @@ async def upload_credentials(file: UploadFile = File(...)):
         
         return {
             "success": True,
-            "message": "Credentials uploaded successfully!",
-            "client_id": client_id[:20] + "..." if len(client_id) > 20 else client_id
+            "message": "Service Account uploaded successfully!",
+            "client_email": data["client_email"],
+            "project_id": data["project_id"]
         }
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON file")
     except Exception as e:
+        logger.error(f"Upload error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/credentials-status")
-async def get_credentials_status():
-    """Check if OAuth credentials are configured"""
-    config = await get_oauth_config()
-    if config:
-        return {
-            "configured": True,
-            "client_id": config["client_id"][:20] + "..." if len(config["client_id"]) > 20 else config["client_id"],
-            "redirect_uri": config["redirect_uri"]
-        }
-    return {"configured": False}
-
-@router.delete("/credentials")
-async def delete_credentials():
-    """Remove OAuth credentials"""
-    await db.oauth_config.delete_one({"type": "google_sheets"})
-    await db.google_tokens.delete_one({"type": "sheets"})
-    return {"success": True, "message": "Credentials removed"}
-
-@router.get("/login")
-async def google_login():
-    """Start Google OAuth login"""
-    try:
-        flow = await get_flow()
-        url, state = flow.authorization_url(
-            access_type='offline',
-            prompt='consent'
-        )
-        
-        # Store state in DB
-        await db.oauth_states.insert_one({
-            "state": state,
-            "created_at": datetime.now(timezone.utc),
-            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)
-        })
-        
-        return RedirectResponse(url)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/callback")
-async def google_callback(code: str = None, state: str = None, error: str = None):
-    """Handle Google OAuth callback"""
-    import logging
-    logger = logging.getLogger(__name__)
-    
-    logger.info(f"=== GOOGLE CALLBACK ===")
-    logger.info(f"Code: {code[:20] if code else 'None'}...")
-    logger.info(f"State: {state}")
-    logger.info(f"Error: {error}")
-    
-    # Handle error from Google
-    if error:
-        logger.error(f"Google OAuth error: {error}")
-        return RedirectResponse(f"{FRONTEND_URL}/advance?error={error}")
-    
-    if not code or not state:
-        logger.error("Missing code or state")
-        return RedirectResponse(f"{FRONTEND_URL}/advance?error=Missing code or state")
-    
-    try:
-        # Verify state
-        state_doc = await db.oauth_states.find_one({"state": state})
-        logger.info(f"State doc found: {state_doc is not None}")
-        
-        if not state_doc:
-            logger.error("Invalid state - not found in DB")
-            return RedirectResponse(f"{FRONTEND_URL}/advance?error=Invalid state")
-        
-        # Delete used state
-        await db.oauth_states.delete_one({"state": state})
-        logger.info("State deleted from DB")
-        
-        flow = await get_flow()
-        logger.info("Flow created")
-        
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            flow.fetch_token(code=code)
-        
-        creds = flow.credentials
-        logger.info(f"Token fetched - Access token: {creds.token[:20] if creds.token else 'None'}...")
-        logger.info(f"Refresh token: {'Present' if creds.refresh_token else 'None'}")
-        logger.info(f"Scopes: {creds.scopes}")
-        
-        # Check required scopes
-        required_scopes = {"https://www.googleapis.com/auth/spreadsheets.readonly"}
-        granted_scopes = set(creds.scopes or [])
-        if not required_scopes.issubset(granted_scopes):
-            missing = required_scopes - granted_scopes
-            logger.error(f"Missing scopes: {missing}")
-            return RedirectResponse(f"{FRONTEND_URL}/advance?error=Missing scopes: {missing}")
-        
-        # Get OAuth config for storing
-        config = await get_oauth_config()
-        logger.info(f"OAuth config loaded: {config is not None}")
-        
-        # Save tokens
-        token_data = {
-            "access_token": creds.token,
-            "refresh_token": creds.refresh_token,
-            "token_uri": creds.token_uri,
-            "client_id": config["client_id"],
-            "client_secret": config["client_secret"],
-            "scopes": list(creds.scopes),
-            "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
-            "updated_at": datetime.now(timezone.utc)
-        }
-        
-        result = await db.google_tokens.update_one(
-            {"type": "sheets"},
-            {"$set": token_data},
-            upsert=True
-        )
-        logger.info(f"Token saved - Modified: {result.modified_count}, Upserted: {result.upserted_id}")
-        
-        # Verify token was saved
-        saved_token = await db.google_tokens.find_one({"type": "sheets"})
-        logger.info(f"Token verification - Saved: {saved_token is not None}")
-        
-        logger.info("=== CALLBACK SUCCESS ===")
-        return RedirectResponse(f"{FRONTEND_URL}/advance?connected=true")
-        
-    except Exception as e:
-        import traceback
-        logger.error(f"Callback error: {str(e)}")
-        logger.error(traceback.format_exc())
-        return RedirectResponse(f"{FRONTEND_URL}/advance?error={str(e)}")
 
 @router.get("/status")
 async def get_status():
-    """Check if Google Sheets is connected"""
-    token = await db.google_tokens.find_one({"type": "sheets"})
-    return {"connected": token is not None and token.get("access_token") is not None}
+    """Check if Service Account is configured"""
+    sa = await db.service_account.find_one({"type": "google_sheets"})
+    if sa and sa.get("credentials"):
+        return {
+            "connected": True,
+            "client_email": sa.get("client_email", ""),
+            "project_id": sa.get("project_id", "")
+        }
+    return {"connected": False}
 
-@router.post("/disconnect")
+@router.delete("/disconnect")
 async def disconnect():
-    """Disconnect Google Sheets"""
-    await db.google_tokens.delete_one({"type": "sheets"})
-    return {"success": True}
+    """Remove Service Account credentials"""
+    await db.service_account.delete_one({"type": "google_sheets"})
+    return {"success": True, "message": "Service Account removed"}
 
 @router.get("/config")
 async def get_config():
@@ -289,36 +116,49 @@ async def save_config(config: SheetConfig):
     )
     return {"success": True}
 
-async def get_sheets_credentials():
-    """Get valid Google Sheets credentials with auto-refresh"""
-    token = await db.google_tokens.find_one({"type": "sheets"})
-    if not token:
-        raise HTTPException(status_code=401, detail="Not connected to Google Sheets")
+@router.post("/test-connection")
+async def test_connection():
+    """Test connection to Google Sheets"""
+    try:
+        # Get service account
+        sa = await db.service_account.find_one({"type": "google_sheets"})
+        if not sa or not sa.get("credentials"):
+            raise HTTPException(status_code=400, detail="Service Account not configured")
+        
+        # Get sheet config
+        config = await db.sheet_config.find_one({"type": "advance"})
+        if not config or not config.get("spreadsheetId"):
+            raise HTTPException(status_code=400, detail="Sheet ID not configured")
+        
+        # Test read
+        data = await read_sheet_data(config["spreadsheetId"], f"{config.get('sheetName', 'Sheet1')}!A1:A5")
+        
+        return {
+            "success": True,
+            "message": f"Connection successful! Found {len(data)} rows",
+            "sample": data[:3] if data else []
+        }
+    except Exception as e:
+        logger.error(f"Test connection error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def get_sheets_service():
+    """Get Google Sheets service using Service Account"""
+    sa = await db.service_account.find_one({"type": "google_sheets"})
+    if not sa or not sa.get("credentials"):
+        raise HTTPException(status_code=401, detail="Service Account not configured")
     
-    config = await get_oauth_config()
-    
-    creds = Credentials(
-        token=token["access_token"],
-        refresh_token=token.get("refresh_token"),
-        token_uri=token.get("token_uri", "https://oauth2.googleapis.com/token"),
-        client_id=token.get("client_id") or (config["client_id"] if config else ""),
-        client_secret=token.get("client_secret") or (config["client_secret"] if config else "")
+    credentials = service_account.Credentials.from_service_account_info(
+        sa["credentials"],
+        scopes=SCOPES
     )
     
-    # Refresh if expired
-    if creds.expired and creds.refresh_token:
-        creds.refresh(GoogleRequest())
-        await db.google_tokens.update_one(
-            {"type": "sheets"},
-            {"$set": {"access_token": creds.token, "updated_at": datetime.now(timezone.utc)}}
-        )
-    
-    return creds
+    service = build('sheets', 'v4', credentials=credentials)
+    return service
 
 async def read_sheet_data(spreadsheet_id: str, range_name: str):
-    """Read data from Google Sheet"""
-    creds = await get_sheets_credentials()
-    service = build('sheets', 'v4', credentials=creds)
+    """Read data from Google Sheet using Service Account"""
+    service = await get_sheets_service()
     
     result = service.spreadsheets().values().get(
         spreadsheetId=spreadsheet_id,
