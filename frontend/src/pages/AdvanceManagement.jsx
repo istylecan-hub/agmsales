@@ -128,9 +128,11 @@ const AdvanceManagement = () => {
         credentials: 'include',
         body: formData,
       });
-      const data = await res.json();
       
-      if (data.success) {
+      const data = await res.json();
+      console.log('Upload response:', res.status, data);
+      
+      if (res.ok && data.success) {
         toast.success('Service Account uploaded!');
         setIsConnected(true);
         setConnectionInfo({
@@ -138,10 +140,14 @@ const AdvanceManagement = () => {
           project_id: data.project_id
         });
       } else {
-        toast.error(data.detail || 'Upload failed');
+        // Show detailed error
+        const errorMsg = data.detail || data.message || 'Upload failed';
+        toast.error(`Error: ${errorMsg}`);
+        console.error('Upload failed:', data);
       }
     } catch (err) {
-      toast.error('Failed to upload Service Account');
+      console.error('Upload exception:', err);
+      toast.error(`Network error: ${err.message}`);
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {

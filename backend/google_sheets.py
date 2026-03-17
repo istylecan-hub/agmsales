@@ -30,21 +30,37 @@ def set_db(database):
 @router.post("/upload-service-account")
 async def upload_service_account(file: UploadFile = File(...)):
     """Upload Google Service Account JSON key file"""
+    logger.info(f"=== UPLOAD SERVICE ACCOUNT ===")
+    logger.info(f"Filename: {file.filename}")
+    logger.info(f"Content-Type: {file.content_type}")
+    
     try:
         content = await file.read()
-        data = json.loads(content)
+        logger.info(f"File size: {len(content)} bytes")
+        
+        # Parse JSON
+        try:
+            data = json.loads(content)
+            logger.info(f"JSON parsed successfully, keys: {list(data.keys())}")
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(e)}")
         
         # Validate service account JSON
         required_fields = ["type", "project_id", "private_key", "client_email"]
-        for field in required_fields:
-            if field not in data:
-                raise HTTPException(status_code=400, detail=f"Missing field: {field}")
+        missing = [f for f in required_fields if f not in data]
+        if missing:
+            logger.error(f"Missing fields: {missing}")
+            raise HTTPException(status_code=400, detail=f"Missing fields: {missing}")
         
         if data["type"] != "service_account":
-            raise HTTPException(status_code=400, detail="Invalid file type. Need service_account JSON")
+            logger.error(f"Invalid type: {data['type']}")
+            raise HTTPException(status_code=400, detail=f"Invalid type: {data['type']}. Expected 'service_account'")
+        
+        logger.info(f"Validation passed. Project: {data['project_id']}, Email: {data['client_email']}")
         
         # Save to database
-        await db.service_account.update_one(
+        result = await db.service_account.update_one(
             {"type": "google_sheets"},
             {
                 "$set": {
@@ -56,6 +72,7 @@ async def upload_service_account(file: UploadFile = File(...)):
             },
             upsert=True
         )
+        logger.info(f"DB save result - modified: {result.modified_count}, upserted: {result.upserted_id}")
         
         return {
             "success": True,
@@ -63,10 +80,12 @@ async def upload_service_account(file: UploadFile = File(...)):
             "client_email": data["client_email"],
             "project_id": data["project_id"]
         }
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON file")
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Upload error: {e}")
+        import traceback
+        logger.error(f"Upload error: {str(e)}")
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/status")
