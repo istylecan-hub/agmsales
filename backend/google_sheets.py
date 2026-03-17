@@ -160,55 +160,92 @@ async def google_login():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/callback")
-async def google_callback(code: str, state: str):
+async def google_callback(code: str = None, state: str = None, error: str = None):
     """Handle Google OAuth callback"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"=== GOOGLE CALLBACK ===")
+    logger.info(f"Code: {code[:20] if code else 'None'}...")
+    logger.info(f"State: {state}")
+    logger.info(f"Error: {error}")
+    
+    # Handle error from Google
+    if error:
+        logger.error(f"Google OAuth error: {error}")
+        return RedirectResponse(f"{FRONTEND_URL}/advance?error={error}")
+    
+    if not code or not state:
+        logger.error("Missing code or state")
+        return RedirectResponse(f"{FRONTEND_URL}/advance?error=Missing code or state")
+    
     try:
         # Verify state
         state_doc = await db.oauth_states.find_one({"state": state})
+        logger.info(f"State doc found: {state_doc is not None}")
+        
         if not state_doc:
-            raise HTTPException(status_code=400, detail="Invalid state")
+            logger.error("Invalid state - not found in DB")
+            return RedirectResponse(f"{FRONTEND_URL}/advance?error=Invalid state")
         
         # Delete used state
         await db.oauth_states.delete_one({"state": state})
+        logger.info("State deleted from DB")
         
         flow = await get_flow()
+        logger.info("Flow created")
         
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             flow.fetch_token(code=code)
         
         creds = flow.credentials
+        logger.info(f"Token fetched - Access token: {creds.token[:20] if creds.token else 'None'}...")
+        logger.info(f"Refresh token: {'Present' if creds.refresh_token else 'None'}")
+        logger.info(f"Scopes: {creds.scopes}")
         
         # Check required scopes
         required_scopes = {"https://www.googleapis.com/auth/spreadsheets.readonly"}
         granted_scopes = set(creds.scopes or [])
         if not required_scopes.issubset(granted_scopes):
             missing = required_scopes - granted_scopes
+            logger.error(f"Missing scopes: {missing}")
             return RedirectResponse(f"{FRONTEND_URL}/advance?error=Missing scopes: {missing}")
         
         # Get OAuth config for storing
         config = await get_oauth_config()
+        logger.info(f"OAuth config loaded: {config is not None}")
         
         # Save tokens
-        await db.google_tokens.update_one(
+        token_data = {
+            "access_token": creds.token,
+            "refresh_token": creds.refresh_token,
+            "token_uri": creds.token_uri,
+            "client_id": config["client_id"],
+            "client_secret": config["client_secret"],
+            "scopes": list(creds.scopes),
+            "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
+            "updated_at": datetime.now(timezone.utc)
+        }
+        
+        result = await db.google_tokens.update_one(
             {"type": "sheets"},
-            {
-                "$set": {
-                    "access_token": creds.token,
-                    "refresh_token": creds.refresh_token,
-                    "token_uri": creds.token_uri,
-                    "client_id": config["client_id"],
-                    "client_secret": config["client_secret"],
-                    "scopes": list(creds.scopes),
-                    "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
-                    "updated_at": datetime.now(timezone.utc)
-                }
-            },
+            {"$set": token_data},
             upsert=True
         )
+        logger.info(f"Token saved - Modified: {result.modified_count}, Upserted: {result.upserted_id}")
         
+        # Verify token was saved
+        saved_token = await db.google_tokens.find_one({"type": "sheets"})
+        logger.info(f"Token verification - Saved: {saved_token is not None}")
+        
+        logger.info("=== CALLBACK SUCCESS ===")
         return RedirectResponse(f"{FRONTEND_URL}/advance?connected=true")
+        
     except Exception as e:
+        import traceback
+        logger.error(f"Callback error: {str(e)}")
+        logger.error(traceback.format_exc())
         return RedirectResponse(f"{FRONTEND_URL}/advance?error={str(e)}")
 
 @router.get("/status")
