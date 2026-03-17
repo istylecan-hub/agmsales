@@ -32,7 +32,7 @@ def normalize_code(code) -> str:
     return str(code).strip().lstrip('0')
 
 @router.post("/upload")
-async def upload_advances(file: UploadFile = File(...)):
+async def upload_advances(file: UploadFile = File(...), employees_json: str = None):
     """
     Upload CSV/Excel file with advance data
     
@@ -87,12 +87,27 @@ async def upload_advances(file: UploadFile = File(...)):
                 detail=f"Missing columns: {missing}. Found: {list(df.columns)}"
             )
         
-        # Get all employees for matching
+        # Get employees - first try MongoDB, then use provided employees_json
         employees = await db.employees.find({}, {"_id": 0, "code": 1, "name": 1}).to_list(1000)
+        
+        # If no employees in MongoDB and employees_json provided, parse it
+        if not employees and employees_json:
+            try:
+                employees = json.loads(employees_json)
+                logger.info(f"Using {len(employees)} employees from request")
+            except:
+                pass
+        
+        if not employees:
+            raise HTTPException(
+                status_code=400, 
+                detail="No employees found! Please add employees first or sync them to database."
+            )
+        
         emp_map = {}
         for emp in employees:
-            norm_code = normalize_code(emp['code'])
-            norm_name = normalize_name(emp['name'])
+            norm_code = normalize_code(emp.get('code', ''))
+            norm_name = normalize_name(emp.get('name', ''))
             # Map by code+name combo
             emp_map[f"{norm_code}_{norm_name}"] = emp
             # Also map by code only for partial match check

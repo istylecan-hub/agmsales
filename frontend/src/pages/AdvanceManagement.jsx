@@ -77,6 +77,11 @@ const AdvanceManagement = () => {
     const formData = new FormData();
     formData.append('file', file);
     
+    // Also send employees list for matching (in case MongoDB is empty)
+    if (employees && employees.length > 0) {
+      formData.append('employees_json', JSON.stringify(employees.map(e => ({ code: e.code, name: e.name }))));
+    }
+    
     try {
       const res = await fetch(`${API_URL}/api/advance/upload`, {
         method: 'POST',
