@@ -8,15 +8,7 @@ import EmployeeMaster from "./pages/EmployeeMaster";
 import AttendanceUpload from "./pages/AttendanceUpload";
 import SalaryConfiguration from "./pages/SalaryConfiguration";
 import SalaryReport from "./pages/SalaryReport";
-import InvoiceExtractor from "./pages/InvoiceExtractor";
-
-// OrderHub Pages
-import OrderHubDashboard from './pages/orderhub/Dashboard';
-import OrderHubUpload from './pages/orderhub/Upload';
-import OrderHubReports from './pages/orderhub/Reports';
-import OrderHubMasterSKUs from './pages/orderhub/MasterSKUs';
-import OrderHubUnmappedSKUs from './pages/orderhub/UnmappedSKUs';
-import OrderHubAdmin from './pages/orderhub/Admin';
+import AdvanceManagement from "./pages/AdvanceManagement";
 
 function App() {
   return (
@@ -29,14 +21,7 @@ function App() {
             <Route path="/attendance" element={<AttendanceUpload />} />
             <Route path="/configuration" element={<SalaryConfiguration />} />
             <Route path="/reports" element={<SalaryReport />} />
-            <Route path="/invoice-extractor" element={<InvoiceExtractor />} />
-            {/* OrderHub Routes */}
-            <Route path="/orderhub" element={<OrderHubDashboard />} />
-            <Route path="/orderhub/upload" element={<OrderHubUpload />} />
-            <Route path="/orderhub/reports" element={<OrderHubReports />} />
-            <Route path="/orderhub/master-skus" element={<OrderHubMasterSKUs />} />
-            <Route path="/orderhub/unmapped" element={<OrderHubUnmappedSKUs />} />
-            <Route path="/orderhub/admin" element={<OrderHubAdmin />} />
+            <Route path="/advance" element={<AdvanceManagement />} />
           </Routes>
         </Layout>
         <Toaster 

@@ -15,13 +15,7 @@ import {
   Languages,
   ChevronLeft,
   ChevronRight,
-  FileText,
-  Package,
-  Upload,
-  Tags,
-  AlertCircle,
-  BarChart3,
-  Shield,
+  Wallet,
 } from 'lucide-react';
 
 export const Layout = ({ children }) => {
@@ -36,14 +30,7 @@ export const Layout = ({ children }) => {
     { path: '/attendance', icon: Calendar, label: 'attendance' },
     { path: '/configuration', icon: Settings, label: 'configuration' },
     { path: '/reports', icon: FileSpreadsheet, label: 'reports' },
-    { path: '/invoice-extractor', icon: FileText, label: 'invoiceExtractor' },
-    // OrderHub Section
-    { path: '/orderhub', icon: Package, label: 'OrderHub', isNew: true },
-    { path: '/orderhub/upload', icon: Upload, label: 'Upload Orders' },
-    { path: '/orderhub/reports', icon: BarChart3, label: 'Order Reports' },
-    { path: '/orderhub/master-skus', icon: Tags, label: 'Master SKUs' },
-    { path: '/orderhub/unmapped', icon: AlertCircle, label: 'Unmapped SKUs' },
-    { path: '/orderhub/admin', icon: Shield, label: 'Admin Controls' },
+    { path: '/advance', icon: Wallet, label: 'Advance', isNew: true },
   ];
 
   const NavItem = ({ item, mobile = false }) => {
@@ -69,7 +56,7 @@ export const Layout = ({ children }) => {
           <span className="font-medium text-sm flex items-center gap-2">
             {t(item.label)}
             {item.isNew && (
-              <span className="text-[10px] px-1.5 py-0.5 bg-orange-500 text-white rounded-full font-bold">
+              <span className="text-[10px] px-1.5 py-0.5 bg-green-500 text-white rounded-full font-bold">
                 NEW
               </span>
             )}

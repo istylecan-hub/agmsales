@@ -10,25 +10,13 @@ from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 
-# Import Invoice Extractor module
-from invoice_extractor import invoice_router, set_database as set_invoice_db
-
-# OrderHub imports
-from orderhub.routes import upload as orderhub_upload
-from orderhub.routes import dashboard as orderhub_dashboard
-from orderhub.routes import reports as orderhub_reports
-from orderhub.routes import export as orderhub_export
-from orderhub.routes import unmapped as orderhub_unmapped
-from orderhub.routes import master_sku as orderhub_master_sku
-from orderhub.routes import admin as orderhub_admin
-from orderhub.routes import platforms as orderhub_platforms
+# Import Google Sheets and Advance modules
+import google_sheets
+import advance_api
 
 
 ROOT_DIR = Path(__file__).parent
 
-# OrderHub upload directory
-ORDERHUB_UPLOAD_DIR = ROOT_DIR / "orderhub_uploads"
-ORDERHUB_UPLOAD_DIR.mkdir(exist_ok=True)
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection with error handling
@@ -53,18 +41,11 @@ async def get_database():
             # Test connection
             await client.admin.command('ping')
             logging.info("MongoDB connected successfully")
-            # Set database for invoice extractor module
-            set_invoice_db(db)
             
-            # Set database for OrderHub module
-            orderhub_upload.set_db(db, ORDERHUB_UPLOAD_DIR)
-            orderhub_dashboard.set_db(db)
-            orderhub_reports.set_db(db)
-            orderhub_export.set_db(db)
-            orderhub_unmapped.set_db(db)
-            orderhub_master_sku.set_db(db)
-            orderhub_admin.set_db(db)
-            orderhub_platforms.set_db(db)
+            # Set database for Google Sheets and Advance modules
+            google_sheets.set_db(db)
+            advance_api.set_db(db)
+            advance_api.set_sheet_reader(google_sheets.read_sheet_data)
         except Exception as e:
             logging.warning(f"MongoDB connection failed: {e}. App will still run (frontend uses localStorage).")
             client = None
@@ -568,18 +549,9 @@ async def get_status_checks():
 # Include the router in the main app
 app.include_router(api_router)
 
-# Include Invoice Extractor router
-app.include_router(invoice_router)
-
-# Include OrderHub routers
-app.include_router(orderhub_upload.router, prefix="/api")
-app.include_router(orderhub_dashboard.router, prefix="/api")
-app.include_router(orderhub_reports.router, prefix="/api")
-app.include_router(orderhub_export.router, prefix="/api")
-app.include_router(orderhub_unmapped.router, prefix="/api")
-app.include_router(orderhub_master_sku.router, prefix="/api")
-app.include_router(orderhub_admin.router, prefix="/api")
-app.include_router(orderhub_platforms.router, prefix="/api")
+# Include Google Sheets and Advance routers
+app.include_router(google_sheets.router)
+app.include_router(advance_api.router)
 
 # Configure logging
 logging.basicConfig(

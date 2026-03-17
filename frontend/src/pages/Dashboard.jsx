@@ -17,6 +17,7 @@ import {
   TrendingUp,
   Trash2,
   RefreshCw,
+  Wallet,
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -256,21 +257,21 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-md transition-all duration-200 border-orange-500/30 bg-orange-500/5" data-testid="quick-action-invoice">
+        <Card className="hover:shadow-md transition-all duration-200 border-green-500/30 bg-green-500/5" data-testid="quick-action-advance">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-lg">Invoice Extractor</h3>
-                  <span className="text-[10px] px-1.5 py-0.5 bg-orange-500 text-white rounded-full font-bold">NEW</span>
+                  <h3 className="font-semibold text-lg">Advance Management</h3>
+                  <span className="text-[10px] px-1.5 py-0.5 bg-green-500 text-white rounded-full font-bold">NEW</span>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Extract data from PDF invoices
+                  Google Sheet से Advance sync करें
                 </p>
               </div>
-              <Button onClick={() => navigate('/invoice-extractor')} className="gap-2 bg-orange-500 hover:bg-orange-600" data-testid="go-to-invoice-btn">
+              <Button onClick={() => navigate('/advance')} className="gap-2 bg-green-500 hover:bg-green-600" data-testid="go-to-advance-btn">
+                <Wallet className="w-4 h-4" />
                 Go
-                <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
           </CardContent>
