@@ -10,8 +10,7 @@ from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 
-# Import Google Sheets and Advance modules
-import google_sheets
+# Import Advance module
 import advance_api
 
 
@@ -42,10 +41,8 @@ async def get_database():
             await client.admin.command('ping')
             logging.info("MongoDB connected successfully")
             
-            # Set database for Google Sheets and Advance modules
-            google_sheets.set_db(db)
+            # Set database for Advance module
             advance_api.set_db(db)
-            advance_api.set_sheet_reader(google_sheets.read_sheet_data)
         except Exception as e:
             logging.warning(f"MongoDB connection failed: {e}. App will still run (frontend uses localStorage).")
             client = None
@@ -549,8 +546,7 @@ async def get_status_checks():
 # Include the router in the main app
 app.include_router(api_router)
 
-# Include Google Sheets and Advance routers
-app.include_router(google_sheets.router)
+# Include Advance router
 app.include_router(advance_api.router)
 
 # Configure logging

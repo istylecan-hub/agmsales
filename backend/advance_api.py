@@ -1,29 +1,29 @@
-# Advance Management API
+# Advance Management API - CSV/Excel Upload
 from datetime import datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
+import pandas as pd
+import io
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/advance", tags=["advance"])
 
 # Will be set from server.py
 db = None
-read_sheet_data = None
 
 def set_db(database):
     global db
     db = database
 
-def set_sheet_reader(reader_func):
-    global read_sheet_data
-    read_sheet_data = reader_func
-
 def normalize_name(name: str) -> str:
     """Normalize name for comparison"""
     if not name:
         return ""
-    return re.sub(r'\s+', ' ', name.strip().lower())
+    return re.sub(r'\s+', ' ', str(name).strip().lower())
 
 def normalize_code(code) -> str:
     """Normalize employee code for comparison"""
@@ -31,115 +31,119 @@ def normalize_code(code) -> str:
         return ""
     return str(code).strip().lstrip('0')
 
-@router.get("/list")
-async def list_advances():
-    """Get all synced advances"""
-    advances = await db.salary_advances.find(
-        {},
-        {"_id": 0}
-    ).sort("date", -1).to_list(500)
+@router.post("/upload")
+async def upload_advances(file: UploadFile = File(...)):
+    """
+    Upload CSV/Excel file with advance data
     
-    # Get stats
-    total = len(advances)
-    matched = len([a for a in advances if a.get("syncStatus") == "Done"])
-    pending = len([a for a in advances if a.get("syncStatus") == "Pending"])
-    errors = len([a for a in advances if a.get("syncStatus") == "Error"])
+    Expected columns: Date, Name, Advance, No (Employee Code), Type, UID
+    Only rows with Type = "Salary" (case-insensitive) will be processed
+    UID is used for update/insert (upsert)
+    """
+    logger.info(f"=== ADVANCE UPLOAD ===")
+    logger.info(f"Filename: {file.filename}")
     
-    # Get last sync time
-    last_sync_doc = await db.sync_logs.find_one(
-        {"type": "advance"},
-        sort=[("timestamp", -1)]
-    )
-    last_sync = last_sync_doc.get("timestamp") if last_sync_doc else None
-    
-    return {
-        "advances": advances,
-        "stats": {
-            "total": total,
-            "matched": matched,
-            "pending": pending,
-            "errors": errors
-        },
-        "lastSync": last_sync
-    }
-
-@router.post("/sync")
-async def sync_advances():
-    """Sync advances from Google Sheet"""
     try:
-        # Get sheet config
-        config = await db.sheet_config.find_one({"type": "advance"})
-        if not config or not config.get("spreadsheetId"):
-            raise HTTPException(status_code=400, detail="Sheet not configured")
+        content = await file.read()
         
-        spreadsheet_id = config["spreadsheetId"]
-        sheet_name = config.get("sheetName", "Sheet1")
-        range_name = config.get("range", "A:F")
-        full_range = f"{sheet_name}!{range_name}"
+        # Parse file based on extension
+        filename = file.filename.lower()
+        if filename.endswith('.csv'):
+            df = pd.read_csv(io.BytesIO(content))
+        elif filename.endswith(('.xlsx', '.xls')):
+            df = pd.read_excel(io.BytesIO(content))
+        else:
+            raise HTTPException(status_code=400, detail="Only CSV and Excel files supported")
         
-        # Read data from sheet
-        rows = await read_sheet_data(spreadsheet_id, full_range)
+        logger.info(f"Parsed {len(df)} rows, columns: {list(df.columns)}")
         
-        if not rows or len(rows) < 2:
-            return {"success": True, "message": "No data found in sheet", "matched": 0, "errors": 0}
+        # Normalize column names (lowercase, strip)
+        df.columns = [str(c).strip().lower() for c in df.columns]
         
-        # Get header row
-        headers = [h.strip().lower() for h in rows[0]]
+        # Find columns (flexible matching)
+        col_map = {}
+        for col in df.columns:
+            if 'date' in col:
+                col_map['date'] = col
+            elif 'name' in col and 'sheet' not in col:
+                col_map['name'] = col
+            elif 'advance' in col or 'amount' in col:
+                col_map['advance'] = col
+            elif col in ['no', 'no.', 'emp', 'code', 'employee code', 'emp code']:
+                col_map['code'] = col
+            elif 'type' in col:
+                col_map['type'] = col
+            elif 'uid' in col or 'id' in col:
+                col_map['uid'] = col
         
-        # Find column indices
-        date_idx = next((i for i, h in enumerate(headers) if 'date' in h), 0)
-        name_idx = next((i for i, h in enumerate(headers) if 'name' in h), 1)
-        advance_idx = next((i for i, h in enumerate(headers) if 'advance' in h or 'amount' in h), 2)
-        code_idx = next((i for i, h in enumerate(headers) if 'no' in h or 'code' in h or 'emp' in h), 3)
-        type_idx = next((i for i, h in enumerate(headers) if 'type' in h), 4)
-        status_idx = next((i for i, h in enumerate(headers) if 'status' in h or 'sync' in h), 5)
+        logger.info(f"Column mapping: {col_map}")
+        
+        # Check required columns
+        required = ['date', 'name', 'advance', 'code', 'type']
+        missing = [r for r in required if r not in col_map]
+        if missing:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Missing columns: {missing}. Found: {list(df.columns)}"
+            )
         
         # Get all employees for matching
         employees = await db.employees.find({}, {"_id": 0, "code": 1, "name": 1}).to_list(1000)
         emp_map = {}
         for emp in employees:
-            key = f"{normalize_code(emp['code'])}_{normalize_name(emp['name'])}"
-            emp_map[key] = emp
-            # Also map by code only
-            emp_map[normalize_code(emp['code'])] = emp
+            norm_code = normalize_code(emp['code'])
+            norm_name = normalize_name(emp['name'])
+            # Map by code+name combo
+            emp_map[f"{norm_code}_{norm_name}"] = emp
+            # Also map by code only for partial match check
+            emp_map[f"code_{norm_code}"] = emp
         
+        logger.info(f"Loaded {len(employees)} employees for matching")
+        
+        # Process rows
         matched = 0
+        skipped = 0
         errors = 0
-        processed = []
+        updated = 0
+        results = []
         
-        # Process data rows
-        for row_idx, row in enumerate(rows[1:], start=2):
+        for idx, row in df.iterrows():
             try:
-                # Pad row if needed
-                while len(row) <= max(date_idx, name_idx, advance_idx, code_idx, type_idx, status_idx):
-                    row.append("")
+                # Get values
+                date_val = str(row[col_map['date']]) if pd.notna(row[col_map['date']]) else ""
+                name_val = str(row[col_map['name']]) if pd.notna(row[col_map['name']]) else ""
+                advance_val = row[col_map['advance']]
+                code_val = str(row[col_map['code']]) if pd.notna(row[col_map['code']]) else ""
+                type_val = str(row[col_map['type']]) if pd.notna(row[col_map['type']]) else ""
+                uid_val = str(row[col_map['uid']]) if 'uid' in col_map and pd.notna(row[col_map['uid']]) else None
                 
-                date_val = row[date_idx] if date_idx < len(row) else ""
-                name_val = row[name_idx] if name_idx < len(row) else ""
-                advance_val = row[advance_idx] if advance_idx < len(row) else ""
-                code_val = row[code_idx] if code_idx < len(row) else ""
-                type_val = row[type_idx] if type_idx < len(row) else ""
-                
-                # Skip if not "Salary" type (case-insensitive)
-                if type_val.strip().lower() != "salary":
+                # Filter: Only Type = "Salary" (case-insensitive)
+                if type_val.strip().lower() != 'salary':
+                    skipped += 1
                     continue
                 
                 # Validate required fields
                 if not name_val or not code_val:
                     errors += 1
+                    results.append({"row": idx + 2, "status": "error", "reason": "Missing name or code"})
                     continue
                 
                 # Parse amount
                 try:
-                    amount = float(re.sub(r'[^\d.]', '', str(advance_val)))
+                    if isinstance(advance_val, (int, float)):
+                        amount = float(advance_val)
+                    else:
+                        amount = float(re.sub(r'[^\d.]', '', str(advance_val)))
                     if amount <= 0:
                         errors += 1
+                        results.append({"row": idx + 2, "status": "error", "reason": "Amount <= 0"})
                         continue
-                except Exception:
+                except:
                     errors += 1
+                    results.append({"row": idx + 2, "status": "error", "reason": "Invalid amount"})
                     continue
                 
-                # Match employee - both name AND code must match
+                # Match employee - both Name AND Code must match
                 norm_code = normalize_code(code_val)
                 norm_name = normalize_name(name_val)
                 match_key = f"{norm_code}_{norm_name}"
@@ -147,29 +151,21 @@ async def sync_advances():
                 emp_match = emp_map.get(match_key)
                 
                 if not emp_match:
-                    # Try matching by code only as fallback
-                    emp_by_code = emp_map.get(norm_code)
+                    # Check if code exists but name doesn't match
+                    emp_by_code = emp_map.get(f"code_{norm_code}")
                     if emp_by_code:
-                        # Code matches but name doesn't - reject
-                        if normalize_name(emp_by_code['name']) != norm_name:
-                            errors += 1
-                            continue
-                        emp_match = emp_by_code
+                        errors += 1
+                        results.append({
+                            "row": idx + 2, 
+                            "status": "error", 
+                            "reason": f"Code {code_val} found but name mismatch: '{name_val}' vs '{emp_by_code['name']}'"
+                        })
                     else:
                         errors += 1
-                        continue
+                        results.append({"row": idx + 2, "status": "error", "reason": f"Employee not found: {code_val} - {name_val}"})
+                    continue
                 
-                # Check for duplicate
-                existing = await db.salary_advances.find_one({
-                    "date": date_val,
-                    "employeeCode": norm_code,
-                    "amount": amount
-                })
-                
-                if existing:
-                    continue  # Skip duplicate
-                
-                # Insert advance record
+                # Create advance record
                 advance_record = {
                     "date": date_val,
                     "name": emp_match['name'],
@@ -177,71 +173,147 @@ async def sync_advances():
                     "amount": amount,
                     "type": "Salary",
                     "syncStatus": "Done",
-                    "sheetRow": row_idx,
-                    "syncedAt": datetime.now(timezone.utc)
+                    "uploadedAt": datetime.now(timezone.utc)
                 }
                 
-                await db.salary_advances.insert_one(advance_record)
-                matched += 1
-                
-                processed.append({
-                    "date": date_val,
-                    "name": emp_match['name'],
-                    "employeeCode": emp_match['code'],
-                    "amount": amount,
-                    "syncStatus": "Done"
-                })
+                # Upsert based on UID if provided, else based on date+code+amount
+                if uid_val:
+                    advance_record["uid"] = uid_val
+                    result = await db.salary_advances.update_one(
+                        {"uid": uid_val},
+                        {"$set": advance_record},
+                        upsert=True
+                    )
+                    if result.modified_count > 0:
+                        updated += 1
+                        results.append({"row": idx + 2, "status": "updated", "uid": uid_val})
+                    else:
+                        matched += 1
+                        results.append({"row": idx + 2, "status": "inserted", "uid": uid_val})
+                else:
+                    # Check for duplicate (same date, code, amount)
+                    existing = await db.salary_advances.find_one({
+                        "date": date_val,
+                        "employeeCode": emp_match['code'],
+                        "amount": amount
+                    })
+                    if existing:
+                        skipped += 1
+                        results.append({"row": idx + 2, "status": "duplicate", "reason": "Already exists"})
+                        continue
+                    
+                    await db.salary_advances.insert_one(advance_record)
+                    matched += 1
+                    results.append({"row": idx + 2, "status": "inserted"})
                 
             except Exception as e:
                 errors += 1
-                print(f"Error processing row {row_idx}: {e}")
+                results.append({"row": idx + 2, "status": "error", "reason": str(e)})
+                logger.error(f"Error processing row {idx + 2}: {e}")
         
-        # Log sync
-        await db.sync_logs.insert_one({
-            "type": "advance",
+        # Log upload
+        await db.advance_uploads.insert_one({
+            "filename": file.filename,
             "timestamp": datetime.now(timezone.utc),
+            "total_rows": len(df),
             "matched": matched,
-            "errors": errors,
-            "total_rows": len(rows) - 1
+            "updated": updated,
+            "skipped": skipped,
+            "errors": errors
         })
+        
+        logger.info(f"Upload complete - Matched: {matched}, Updated: {updated}, Skipped: {skipped}, Errors: {errors}")
         
         return {
             "success": True,
+            "message": f"Processed {len(df)} rows",
             "matched": matched,
+            "updated": updated,
+            "skipped": skipped,
             "errors": errors,
-            "message": f"Synced {matched} advances, {errors} errors"
+            "details": results[:50]  # Return first 50 results
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Upload error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/employee/{employee_code}")
-async def get_employee_advances(employee_code: str, month: Optional[int] = None, year: Optional[int] = None):
-    """Get advances for a specific employee"""
-    query = {"employeeCode": normalize_code(employee_code), "syncStatus": "Done"}
+@router.get("/list")
+async def list_advances(month: Optional[int] = None, year: Optional[int] = None):
+    """Get all synced advances"""
+    query = {"syncStatus": "Done"}
     
     advances = await db.salary_advances.find(
         query,
         {"_id": 0}
-    ).sort("date", -1).to_list(100)
+    ).sort("uploadedAt", -1).to_list(500)
     
     # Filter by month/year if provided
     if month and year:
         filtered = []
         for adv in advances:
             try:
-                # Parse date (try multiple formats)
                 date_str = adv.get("date", "")
-                adv_date = None
-                for fmt in ["%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%m/%d/%Y"]:
+                for fmt in ["%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%m/%d/%Y", "%d-%b-%Y", "%d %b %Y"]:
                     try:
-                        adv_date = datetime.strptime(date_str, fmt)
+                        adv_date = datetime.strptime(str(date_str), fmt)
+                        if adv_date.month == month and adv_date.year == year:
+                            filtered.append(adv)
                         break
                     except ValueError:
                         continue
-                
-                if adv_date and adv_date.month == month and adv_date.year == year:
-                    filtered.append(adv)
+            except Exception:
+                pass
+        advances = filtered
+    
+    # Get stats
+    total = len(advances)
+    total_amount = sum(adv.get("amount", 0) for adv in advances)
+    
+    # Get last upload time
+    last_upload = await db.advance_uploads.find_one(sort=[("timestamp", -1)])
+    
+    return {
+        "advances": advances,
+        "stats": {
+            "total": total,
+            "totalAmount": total_amount
+        },
+        "lastUpload": last_upload.get("timestamp") if last_upload else None
+    }
+
+@router.get("/employee/{employee_code}")
+async def get_employee_advances(employee_code: str, month: Optional[int] = None, year: Optional[int] = None):
+    """Get advances for a specific employee"""
+    norm_code = normalize_code(employee_code)
+    
+    # Find all advances for this employee
+    all_advances = await db.salary_advances.find(
+        {"syncStatus": "Done"},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    # Filter by employee code
+    advances = [a for a in all_advances if normalize_code(a.get("employeeCode", "")) == norm_code]
+    
+    # Filter by month/year if provided
+    if month and year:
+        filtered = []
+        for adv in advances:
+            try:
+                date_str = adv.get("date", "")
+                for fmt in ["%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%m/%d/%Y", "%d-%b-%Y"]:
+                    try:
+                        adv_date = datetime.strptime(str(date_str), fmt)
+                        if adv_date.month == month and adv_date.year == year:
+                            filtered.append(adv)
+                        break
+                    except ValueError:
+                        continue
             except Exception:
                 pass
         advances = filtered
@@ -259,3 +331,11 @@ async def clear_advances():
     """Clear all advance records"""
     result = await db.salary_advances.delete_many({})
     return {"success": True, "deleted": result.deleted_count}
+
+@router.delete("/{uid}")
+async def delete_advance(uid: str):
+    """Delete a specific advance by UID"""
+    result = await db.salary_advances.delete_one({"uid": uid})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Advance not found")
+    return {"success": True, "deleted": 1}
