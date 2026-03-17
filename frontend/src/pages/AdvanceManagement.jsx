@@ -78,8 +78,14 @@ const AdvanceManagement = () => {
     formData.append('file', file);
     
     // Also send employees list for matching (in case MongoDB is empty)
+    console.log('Employees from context:', employees?.length || 0);
     if (employees && employees.length > 0) {
-      formData.append('employees_json', JSON.stringify(employees.map(e => ({ code: e.code, name: e.name }))));
+      const empData = employees.map(e => ({ code: e.code, name: e.name }));
+      console.log('Sending employees:', empData);
+      formData.append('employees_json', JSON.stringify(empData));
+    } else {
+      console.warn('No employees available to send!');
+      toast.warning('Warning: No employees loaded. Make sure to load employees first.');
     }
     
     try {
@@ -89,16 +95,27 @@ const AdvanceManagement = () => {
         body: formData,
       });
       
-      const data = await res.json();
-      console.log('Upload response:', data);
+      // Read response text first, then parse
+      const responseText = await res.text();
+      console.log('Upload response text:', responseText);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        toast.error(`Server error: ${responseText.substring(0, 100)}`);
+        setUploadResult({ success: false, message: responseText });
+        return;
+      }
       
       if (res.ok && data.success) {
         toast.success(`Upload complete! ${data.matched} inserted, ${data.updated} updated, ${data.errors} errors`);
         setUploadResult(data);
         loadAdvances();
       } else {
-        toast.error(data.detail || 'Upload failed');
-        setUploadResult({ success: false, message: data.detail });
+        toast.error(data.detail || data.message || 'Upload failed');
+        setUploadResult({ success: false, message: data.detail || data.message });
       }
     } catch (err) {
       console.error('Upload error:', err);

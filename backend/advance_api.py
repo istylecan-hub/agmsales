@@ -1,11 +1,12 @@
 # Advance Management API - CSV/Excel Upload
 from datetime import datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 import pandas as pd
 import io
 import re
+import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ def normalize_code(code) -> str:
     return str(code).strip().lstrip('0')
 
 @router.post("/upload")
-async def upload_advances(file: UploadFile = File(...), employees_json: str = None):
+async def upload_advances(file: UploadFile = File(...), employees_json: Optional[str] = Form(None)):
     """
     Upload CSV/Excel file with advance data
     
@@ -42,6 +43,7 @@ async def upload_advances(file: UploadFile = File(...), employees_json: str = No
     """
     logger.info(f"=== ADVANCE UPLOAD ===")
     logger.info(f"Filename: {file.filename}")
+    logger.info(f"employees_json provided: {employees_json is not None}")
     
     try:
         content = await file.read()
@@ -89,19 +91,21 @@ async def upload_advances(file: UploadFile = File(...), employees_json: str = No
         
         # Get employees - first try MongoDB, then use provided employees_json
         employees = await db.employees.find({}, {"_id": 0, "code": 1, "name": 1}).to_list(1000)
+        logger.info(f"MongoDB employees count: {len(employees)}")
         
         # If no employees in MongoDB and employees_json provided, parse it
         if not employees and employees_json:
             try:
                 employees = json.loads(employees_json)
-                logger.info(f"Using {len(employees)} employees from request")
-            except:
-                pass
+                logger.info(f"Parsed {len(employees)} employees from request JSON")
+            except Exception as e:
+                logger.error(f"Failed to parse employees_json: {e}")
         
         if not employees:
+            logger.error("No employees found in MongoDB or request")
             raise HTTPException(
                 status_code=400, 
-                detail="No employees found! Please add employees first or sync them to database."
+                detail="No employees found! Please ensure employees are loaded in the Employees page."
             )
         
         emp_map = {}
