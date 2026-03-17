@@ -2,7 +2,7 @@
 import os
 import json
 import warnings
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from fastapi.responses import RedirectResponse
@@ -152,7 +152,7 @@ async def google_login():
         await db.oauth_states.insert_one({
             "state": state,
             "created_at": datetime.now(timezone.utc),
-            "expires_at": datetime.now(timezone.utc).replace(minute=datetime.now().minute + 10)
+            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)
         })
         
         return RedirectResponse(url)
@@ -200,7 +200,7 @@ async def google_callback(code: str, state: str):
                     "client_id": config["client_id"],
                     "client_secret": config["client_secret"],
                     "scopes": list(creds.scopes),
-                    "expires_at": datetime.now(timezone.utc).replace(hour=datetime.now().hour + 1),
+                    "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
                     "updated_at": datetime.now(timezone.utc)
                 }
             },
