@@ -124,8 +124,8 @@ A Salary Calculator application with:
 ## Prioritized Backlog
 
 ### P1 - High
+- [x] ~~Clean up old unused backend files~~ (Apr 12, 2026)
 - [ ] Monthly salary save overwrite verification
-- [ ] Clean up old unused backend files (invoice_extractor.py, orderhub/, parsers/)
 
 ### P2 - Medium
 - [ ] Full E2E regression test with real attendance data
