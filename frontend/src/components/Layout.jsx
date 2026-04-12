@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { Button } from './ui/button';
 import {
   LayoutDashboard,
@@ -16,13 +17,23 @@ import {
   ChevronLeft,
   ChevronRight,
   Wallet,
+  LogOut,
 } from 'lucide-react';
 
 export const Layout = ({ children }) => {
   const { t, toggleLanguage, language, isDarkMode, toggleTheme } = useApp();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      logout();
+      navigate('/login');
+    }
+  };
 
   const navItems = [
     { path: '/', icon: LayoutDashboard, label: 'dashboard' },
@@ -87,6 +98,9 @@ export const Layout = ({ children }) => {
           </Button>
           <Button variant="ghost" size="icon" onClick={toggleTheme} data-testid="theme-toggle-mobile">
             {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </Button>
+          <Button variant="ghost" size="icon" onClick={handleLogout} className="text-red-500" data-testid="logout-btn-mobile">
+            <LogOut className="w-5 h-5" />
           </Button>
         </div>
       </header>
@@ -185,6 +199,26 @@ export const Layout = ({ children }) => {
               </>
             )}
           </Button>
+          
+          {/* Logout Button */}
+          <Button
+            variant="ghost"
+            className={`w-full text-red-500 hover:text-red-600 hover:bg-red-500/10 ${sidebarCollapsed ? 'justify-center px-0' : 'justify-start'}`}
+            onClick={handleLogout}
+            data-testid="logout-btn"
+          >
+            <LogOut className="w-5 h-5" />
+            {!sidebarCollapsed && (
+              <span className="ml-3 text-sm">Logout</span>
+            )}
+          </Button>
+          
+          {/* User info */}
+          {!sidebarCollapsed && user && (
+            <div className="text-xs text-muted-foreground text-center pt-2 border-t">
+              Logged in as: {user.username}
+            </div>
+          )}
         </div>
       </aside>
 

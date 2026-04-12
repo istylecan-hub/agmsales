@@ -1,13 +1,14 @@
 # Advance Management API - CSV/Excel Upload
 from datetime import datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
 from pydantic import BaseModel
 import pandas as pd
 import io
 import re
 import json
 import logging
+from auth import get_current_user, TokenData
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ def normalize_code(code) -> str:
     return str(code).strip().lstrip('0')
 
 @router.post("/upload")
-async def upload_advances(file: UploadFile = File(...), employees_json: Optional[str] = Form(None)):
+async def upload_advances(file: UploadFile = File(...), employees_json: Optional[str] = Form(None), current_user: TokenData = Depends(get_current_user)):
     """
     Upload CSV/Excel file with advance data
     
@@ -262,7 +263,7 @@ async def upload_advances(file: UploadFile = File(...), employees_json: Optional
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/list")
-async def list_advances(month: Optional[int] = None, year: Optional[int] = None):
+async def list_advances(month: Optional[int] = None, year: Optional[int] = None, current_user: TokenData = Depends(get_current_user)):
     """Get all synced advances"""
     query = {"syncStatus": "Done"}
     
@@ -306,7 +307,7 @@ async def list_advances(month: Optional[int] = None, year: Optional[int] = None)
     }
 
 @router.get("/employee/{employee_code}")
-async def get_employee_advances(employee_code: str, month: Optional[int] = None, year: Optional[int] = None):
+async def get_employee_advances(employee_code: str, month: Optional[int] = None, year: Optional[int] = None, current_user: TokenData = Depends(get_current_user)):
     """Get advances for a specific employee"""
     norm_code = normalize_code(employee_code)
     
@@ -346,13 +347,13 @@ async def get_employee_advances(employee_code: str, month: Optional[int] = None,
     }
 
 @router.delete("/clear")
-async def clear_advances():
+async def clear_advances(current_user: TokenData = Depends(get_current_user)):
     """Clear all advance records"""
     result = await db.salary_advances.delete_many({})
     return {"success": True, "deleted": result.deleted_count}
 
 @router.delete("/{uid}")
-async def delete_advance(uid: str):
+async def delete_advance(uid: str, current_user: TokenData = Depends(get_current_user)):
     """Delete a specific advance by UID"""
     result = await db.salary_advances.delete_one({"uid": uid})
     if result.deleted_count == 0:

@@ -4,6 +4,18 @@ import { STORAGE_KEYS, DEFAULT_CONFIG } from './constants';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
+// Helper to get auth headers
+const getAuthHeaders = () => {
+  const token = sessionStorage.getItem('auth_token');
+  if (token) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+  }
+  return { 'Content-Type': 'application/json' };
+};
+
 export const storage = {
   // Employees
   getEmployees: () => {
@@ -41,9 +53,13 @@ export const storage = {
     try {
       const response = await fetch(`${API_URL}/api/employees`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(employees),
       });
+      if (response.status === 401) {
+        console.warn('[Storage] Unauthorized - user not logged in');
+        return;
+      }
       const result = await response.json();
       if (result.success) {
         console.log('[Storage] Synced employees to server:', employees.length);

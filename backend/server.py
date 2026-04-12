@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Depends
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -10,7 +10,9 @@ from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 
-# Import Advance module
+# Import Auth and Advance modules
+import auth
+from auth import get_current_user, TokenData
 import advance_api
 
 
@@ -109,7 +111,7 @@ class EmployeeResponse(BaseModel):
     data: Optional[List[dict]] = None
 
 @api_router.get("/employees")
-async def get_all_employees():
+async def get_all_employees(current_user: TokenData = Depends(get_current_user)):
     """Get all employees from MongoDB"""
     database = await get_database()
     if database is None:
@@ -123,7 +125,7 @@ async def get_all_employees():
         return {"success": False, "message": str(e), "data": []}
 
 @api_router.post("/employees")
-async def save_employees(employees: List[EmployeeModel]):
+async def save_employees(employees: List[EmployeeModel], current_user: TokenData = Depends(get_current_user)):
     """Save/Replace all employees in MongoDB"""
     database = await get_database()
     if database is None:
@@ -141,7 +143,7 @@ async def save_employees(employees: List[EmployeeModel]):
         return {"success": False, "message": str(e)}
 
 @api_router.post("/employees/add")
-async def add_employee(employee: EmployeeModel):
+async def add_employee(employee: EmployeeModel, current_user: TokenData = Depends(get_current_user)):
     """Add a single employee"""
     database = await get_database()
     if database is None:
@@ -160,7 +162,7 @@ async def add_employee(employee: EmployeeModel):
         return {"success": False, "message": str(e)}
 
 @api_router.put("/employees/{code}")
-async def update_employee(code: str, employee: EmployeeModel):
+async def update_employee(code: str, employee: EmployeeModel, current_user: TokenData = Depends(get_current_user)):
     """Update an employee"""
     database = await get_database()
     if database is None:
@@ -179,7 +181,7 @@ async def update_employee(code: str, employee: EmployeeModel):
         return {"success": False, "message": str(e)}
 
 @api_router.delete("/employees/{code}")
-async def delete_employee_api(code: str):
+async def delete_employee_api(code: str, current_user: TokenData = Depends(get_current_user)):
     """Delete an employee"""
     database = await get_database()
     if database is None:
@@ -246,7 +248,7 @@ class SalaryRecordUpdate(BaseModel):
     deductions: Optional[float] = None
 
 @api_router.post("/salary/save")
-async def save_monthly_salary(data: SalaryRecordCreate):
+async def save_monthly_salary(data: SalaryRecordCreate, current_user: TokenData = Depends(get_current_user)):
     """Save calculated salary for a month"""
     database = await get_database()
     if database is None:
@@ -286,7 +288,7 @@ async def save_monthly_salary(data: SalaryRecordCreate):
         return {"success": False, "message": str(e)}
 
 @api_router.get("/salary/history")
-async def get_salary_history():
+async def get_salary_history(current_user: TokenData = Depends(get_current_user)):
     """Get list of all saved salary months"""
     database = await get_database()
     if database is None:
@@ -305,7 +307,7 @@ async def get_salary_history():
         return {"success": False, "message": str(e), "data": []}
 
 @api_router.get("/salary/history/{year}/{month}")
-async def get_salary_for_month(year: int, month: int):
+async def get_salary_for_month(year: int, month: int, current_user: TokenData = Depends(get_current_user)):
     """Get salary data for a specific month"""
     database = await get_database()
     if database is None:
@@ -326,7 +328,7 @@ async def get_salary_for_month(year: int, month: int):
         return {"success": False, "message": str(e)}
 
 @api_router.put("/salary/history/{year}/{month}/{emp_code}")
-async def update_employee_salary(year: int, month: int, emp_code: str, update: SalaryRecordUpdate):
+async def update_employee_salary(year: int, month: int, emp_code: str, update: SalaryRecordUpdate, current_user: TokenData = Depends(get_current_user)):
     """Update a specific employee's salary in a saved record"""
     database = await get_database()
     if database is None:
@@ -374,7 +376,7 @@ async def update_employee_salary(year: int, month: int, emp_code: str, update: S
         return {"success": False, "message": str(e)}
 
 @api_router.delete("/salary/history/{year}/{month}")
-async def delete_salary_record(year: int, month: int):
+async def delete_salary_record(year: int, month: int, current_user: TokenData = Depends(get_current_user)):
     """Delete a saved salary record"""
     database = await get_database()
     if database is None:
@@ -392,7 +394,7 @@ async def delete_salary_record(year: int, month: int):
         return {"success": False, "message": str(e)}
 
 @api_router.get("/salary/compare/{year1}/{month1}/{year2}/{month2}")
-async def compare_salary_months(year1: int, month1: int, year2: int, month2: int):
+async def compare_salary_months(year1: int, month1: int, year2: int, month2: int, current_user: TokenData = Depends(get_current_user)):
     """Compare salary data between two months"""
     database = await get_database()
     if database is None:
@@ -454,7 +456,7 @@ async def compare_salary_months(year1: int, month1: int, year2: int, month2: int
         return {"success": False, "message": str(e)}
 
 @api_router.get("/salary/employee/{emp_code}/growth")
-async def get_employee_growth(emp_code: str):
+async def get_employee_growth(emp_code: str, current_user: TokenData = Depends(get_current_user)):
     """Get salary growth history for an employee"""
     database = await get_database()
     if database is None:
@@ -545,6 +547,9 @@ async def get_status_checks():
 
 # Include the router in the main app
 app.include_router(api_router)
+
+# Include Auth router (no authentication required for login)
+app.include_router(auth.router)
 
 # Include Advance router
 app.include_router(advance_api.router)

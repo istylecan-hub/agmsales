@@ -2,7 +2,10 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { AppProvider } from "./context/AppContext";
+import { AuthProvider } from "./context/AuthContext";
 import { Layout } from "./components/Layout";
+import PrivateRoute from "./components/PrivateRoute";
+import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import EmployeeMaster from "./pages/EmployeeMaster";
 import AttendanceUpload from "./pages/AttendanceUpload";
@@ -12,30 +15,58 @@ import AdvanceManagement from "./pages/AdvanceManagement";
 
 function App() {
   return (
-    <AppProvider>
-      <BrowserRouter>
-        <Layout>
+    <AuthProvider>
+      <AppProvider>
+        <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/employees" element={<EmployeeMaster />} />
-            <Route path="/attendance" element={<AttendanceUpload />} />
-            <Route path="/configuration" element={<SalaryConfiguration />} />
-            <Route path="/reports" element={<SalaryReport />} />
-            <Route path="/advance" element={<AdvanceManagement />} />
+            {/* Public route - Login */}
+            <Route path="/login" element={<Login />} />
+            
+            {/* Protected routes */}
+            <Route path="/" element={
+              <PrivateRoute>
+                <Layout><Dashboard /></Layout>
+              </PrivateRoute>
+            } />
+            <Route path="/employees" element={
+              <PrivateRoute>
+                <Layout><EmployeeMaster /></Layout>
+              </PrivateRoute>
+            } />
+            <Route path="/attendance" element={
+              <PrivateRoute>
+                <Layout><AttendanceUpload /></Layout>
+              </PrivateRoute>
+            } />
+            <Route path="/configuration" element={
+              <PrivateRoute>
+                <Layout><SalaryConfiguration /></Layout>
+              </PrivateRoute>
+            } />
+            <Route path="/reports" element={
+              <PrivateRoute>
+                <Layout><SalaryReport /></Layout>
+              </PrivateRoute>
+            } />
+            <Route path="/advance" element={
+              <PrivateRoute>
+                <Layout><AdvanceManagement /></Layout>
+              </PrivateRoute>
+            } />
           </Routes>
-        </Layout>
-        <Toaster 
-          position="top-right" 
-          richColors 
-          closeButton
-          toastOptions={{
-            style: {
-              fontFamily: 'Inter, sans-serif',
-            },
-          }}
-        />
-      </BrowserRouter>
-    </AppProvider>
+          <Toaster 
+            position="top-right" 
+            richColors 
+            closeButton
+            toastOptions={{
+              style: {
+                fontFamily: 'Inter, sans-serif',
+              },
+            }}
+          />
+        </BrowserRouter>
+      </AppProvider>
+    </AuthProvider>
   );
 }
 
