@@ -39,6 +39,12 @@ const AdvanceManagement = () => {
   const [uploadResult, setUploadResult] = useState(null);
   const fileInputRef = useRef(null);
 
+  // Helper to get auth token
+  const getAuthHeaders = () => {
+    const token = sessionStorage.getItem('auth_token');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  };
+
   useEffect(() => {
     loadAdvances();
   }, []);
@@ -46,7 +52,14 @@ const AdvanceManagement = () => {
   const loadAdvances = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/advance/list`, { credentials: 'include' });
+      const res = await fetch(`${API_URL}/api/advance/list`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.status === 401) {
+        console.warn('Unauthorized - redirecting to login');
+        window.location.href = '/login';
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setAdvances(data.advances || []);
@@ -91,7 +104,7 @@ const AdvanceManagement = () => {
     try {
       const res = await fetch(`${API_URL}/api/advance/upload`, {
         method: 'POST',
-        credentials: 'include',
+        headers: getAuthHeaders(),
         body: formData,
       });
       
@@ -134,7 +147,7 @@ const AdvanceManagement = () => {
     try {
       const res = await fetch(`${API_URL}/api/advance/clear`, {
         method: 'DELETE',
-        credentials: 'include',
+        headers: getAuthHeaders(),
       });
       if (res.ok) {
         toast.success('All advances cleared');

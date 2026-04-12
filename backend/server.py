@@ -55,15 +55,34 @@ async def get_database():
 app = FastAPI()
 
 # CORS middleware - MUST be added FIRST before any routes
-# Allow all origins for production deployment
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=["https://accounts.agmsale.com", "https://agmone.agmsale.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
 )
+
+# Security headers middleware
+from starlette.requests import Request
+from starlette.responses import Response
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' https://assets.emergent.sh https://cdn.tailwindcss.com https://us.i.posthog.com; "
+        "connect-src 'self' https://us.i.posthog.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "style-src 'self' https://fonts.googleapis.com 'unsafe-inline';"
+    )
+    return response
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")

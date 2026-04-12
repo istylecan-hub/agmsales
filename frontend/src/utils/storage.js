@@ -74,7 +74,13 @@ export const storage = {
   // Load employees from MongoDB server
   loadEmployeesFromServer: async () => {
     try {
-      const response = await fetch(`${API_URL}/api/employees`);
+      const response = await fetch(`${API_URL}/api/employees`, {
+        headers: getAuthHeaders(),
+      });
+      if (response.status === 401) {
+        console.warn('[Storage] Unauthorized - token missing or expired');
+        return null;
+      }
       const result = await response.json();
       if (result.success && result.data && result.data.length > 0) {
         console.log('[Storage] Loaded employees from server:', result.data.length);

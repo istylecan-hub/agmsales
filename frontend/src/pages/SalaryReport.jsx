@@ -86,6 +86,12 @@ export default function SalaryReport() {
   
   const API_URL = process.env.REACT_APP_BACKEND_URL;
 
+  // Helper to get auth token
+  const getAuthHeaders = () => {
+    const token = sessionStorage.getItem('auth_token');
+    return token ? { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` } : { 'Content-Type': 'application/json' };
+  };
+
   // Load salary history on mount
   useEffect(() => {
     loadSalaryHistory();
@@ -94,7 +100,9 @@ export default function SalaryReport() {
   const loadSalaryHistory = async () => {
     setIsLoadingHistory(true);
     try {
-      const res = await fetch(`${API_URL}/api/salary/history`);
+      const res = await fetch(`${API_URL}/api/salary/history`, {
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
       if (data.success) {
         setSalaryHistory(data.data || []);
@@ -144,7 +152,7 @@ export default function SalaryReport() {
       
       const res = await fetch(`${API_URL}/api/salary/save`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(payload)
       });
       
@@ -175,7 +183,9 @@ export default function SalaryReport() {
 
   const handleViewHistoryRecord = async (record) => {
     try {
-      const res = await fetch(`${API_URL}/api/salary/history/${record.year}/${record.month}`);
+      const res = await fetch(`${API_URL}/api/salary/history/${record.year}/${record.month}`, {
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
       if (data.success) {
         setSelectedHistoryRecord(data.data);
@@ -193,7 +203,8 @@ export default function SalaryReport() {
     
     try {
       const res = await fetch(`${API_URL}/api/salary/history/${record.year}/${record.month}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getAuthHeaders(),
       });
       const data = await res.json();
       if (data.success) {
@@ -217,7 +228,9 @@ export default function SalaryReport() {
     const [y2, m2] = compareMonth2.split('-');
     
     try {
-      const res = await fetch(`${API_URL}/api/salary/compare/${y1}/${m1}/${y2}/${m2}`);
+      const res = await fetch(`${API_URL}/api/salary/compare/${y1}/${m1}/${y2}/${m2}`, {
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
       if (data.success) {
         setComparisonData(data.data);
@@ -236,7 +249,9 @@ export default function SalaryReport() {
     }
     
     try {
-      const res = await fetch(`${API_URL}/api/salary/employee/${growthEmployee}/growth`);
+      const res = await fetch(`${API_URL}/api/salary/employee/${growthEmployee}/growth`, {
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
       if (data.success) {
         setGrowthData(data.data);
