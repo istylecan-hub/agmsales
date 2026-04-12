@@ -30,11 +30,7 @@ export default function Dashboard() {
       return;
     }
     
-    // Clear localStorage
-    localStorage.removeItem('agm_attendance');
-    localStorage.removeItem('agm_calculation');
-    
-    // Clear React state
+    // Clear React state (no localStorage for sensitive data)
     setAttendanceData(null);
     setCalculationResults(null);
     

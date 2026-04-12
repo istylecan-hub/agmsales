@@ -171,8 +171,6 @@ export default function AttendanceUpload() {
     }
 
     // CRITICAL: Clear ALL old attendance data before processing new file
-    localStorage.removeItem('agm_attendance');
-    localStorage.removeItem('agm_calculation');
     setAttendanceData(null);
     setPreviewData(null);
     setMatchStatus(null);
@@ -308,8 +306,6 @@ export default function AttendanceUpload() {
     setMatchStatus(null);
     setAttendanceData(null);
     setManualHolidays([]);
-    // Also clear from localStorage
-    localStorage.removeItem('agm_attendance');
     toast.success('Attendance data cleared! Now you can upload new file.');
   };
 

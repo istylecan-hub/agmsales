@@ -8,8 +8,13 @@ import { DAY_CLASSIFICATIONS } from './constants';
 
 /**
  * Calculate salary for all employees based on attendance data and configuration
+ * @param {Object} attendanceData - Parsed attendance data
+ * @param {Array} employees - Employee master list
+ * @param {Object} config - Salary configuration
+ * @param {number} daysInMonth - Days in the selected month
+ * @param {Object} advancesMap - Map of employeeCode -> total advance amount (optional)
  */
-export const calculateSalaries = (attendanceData, employees, config, daysInMonth) => {
+export const calculateSalaries = (attendanceData, employees, config, daysInMonth, advancesMap = {}) => {
   const results = [];
   const employeeMap = new Map();
   
@@ -45,6 +50,12 @@ export const calculateSalaries = (attendanceData, employees, config, daysInMonth
       attendanceData.manualHolidays || [],
       attendanceData  // Pass full attendance data for month/year check
     );
+    
+    // Apply advance deduction
+    const normalizedCodeForAdv = normalizeEmpCode(masterEmployee.code);
+    const advanceAmount = advancesMap[normalizedCodeForAdv] || 0;
+    result.advanceAmount = advanceAmount;
+    result.netSalary = Math.round(result.totalSalary - advanceAmount);
     
     results.push(result);
   });
@@ -598,6 +609,8 @@ const calculateSummary = (results) => {
   const totalSalary = results.reduce((sum, r) => sum + r.totalSalary, 0);
   const totalOT = results.reduce((sum, r) => sum + r.otAmount, 0);
   const totalShortDeduction = results.reduce((sum, r) => sum + (r.shortDeduction || 0), 0);
+  const totalAdvance = results.reduce((sum, r) => sum + (r.advanceAmount || 0), 0);
+  const totalNetSalary = results.reduce((sum, r) => sum + (r.netSalary ?? r.totalSalary), 0);
   const zeroSalaryCount = results.filter(r => r.totalSalary === 0).length;
   const halfDayCount = results.reduce((sum, r) => sum + r.halfDayCount, 0);
   const onlySundayNoOTCount = results.filter(r => r.onlySundayNoOT).length;
@@ -607,6 +620,8 @@ const calculateSummary = (results) => {
     totalSalary,
     totalOT,
     totalShortDeduction,
+    totalAdvance,
+    totalNetSalary,
     zeroSalaryCount,
     halfDayCount,
     onlySundayNoOTCount,

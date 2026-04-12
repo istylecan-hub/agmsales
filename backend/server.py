@@ -1,7 +1,9 @@
-from fastapi import FastAPI, APIRouter, Depends
+from fastapi import FastAPI, APIRouter, Depends, Request
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 import os
 import logging
 from pathlib import Path
@@ -14,6 +16,7 @@ from datetime import datetime, timezone
 import auth
 from auth import get_current_user, TokenData
 import advance_api
+from rate_limit import limiter
 
 
 ROOT_DIR = Path(__file__).parent
@@ -53,6 +56,10 @@ async def get_database():
 
 # Create the main app without a prefix
 app = FastAPI()
+
+# Rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS middleware - MUST be added FIRST before any routes
 app.add_middleware(
@@ -144,7 +151,8 @@ async def get_all_employees(current_user: TokenData = Depends(get_current_user))
         return {"success": False, "message": str(e), "data": []}
 
 @api_router.post("/employees")
-async def save_employees(employees: List[EmployeeModel], current_user: TokenData = Depends(get_current_user)):
+@limiter.limit("10/minute")
+async def save_employees(request: Request, employees: List[EmployeeModel], current_user: TokenData = Depends(get_current_user)):
     """Save/Replace all employees in MongoDB"""
     database = await get_database()
     if database is None:
@@ -267,7 +275,8 @@ class SalaryRecordUpdate(BaseModel):
     deductions: Optional[float] = None
 
 @api_router.post("/salary/save")
-async def save_monthly_salary(data: SalaryRecordCreate, current_user: TokenData = Depends(get_current_user)):
+@limiter.limit("10/minute")
+async def save_monthly_salary(request: Request, data: SalaryRecordCreate, current_user: TokenData = Depends(get_current_user)):
     """Save calculated salary for a month"""
     database = await get_database()
     if database is None:

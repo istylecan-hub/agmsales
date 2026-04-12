@@ -53,6 +53,7 @@ import {
   Edit,
   Trash2,
   Check,
+  Wallet,
 } from 'lucide-react';
 
 export default function SalaryReport() {
@@ -580,7 +581,7 @@ export default function SalaryReport() {
       </div>
 
       {/* Summary Dashboard */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4" data-testid="summary-dashboard">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4" data-testid="summary-dashboard">
         <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -627,21 +628,41 @@ export default function SalaryReport() {
           </CardContent>
         </Card>
 
-        <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Short Ded.</p>
-                <p className="text-2xl font-bold font-[JetBrains_Mono] mt-1 text-red-500">
-                  -₹{(summary.totalShortDeduction || 0).toLocaleString('en-IN')}
-                </p>
+        {(summary.totalAdvance || 0) > 0 && (
+          <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 border-amber-500/30">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Advance</p>
+                  <p className="text-2xl font-bold font-[JetBrains_Mono] mt-1 text-amber-600">
+                    -₹{(summary.totalAdvance || 0).toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <div className="p-3 bg-amber-500/10 rounded-xl">
+                  <Wallet className="w-6 h-6 text-amber-600" />
+                </div>
               </div>
-              <div className="p-3 bg-red-500/10 rounded-xl">
-                <Clock className="w-6 h-6 text-red-500" />
+            </CardContent>
+          </Card>
+        )}
+
+        {(summary.totalAdvance || 0) > 0 && (
+          <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 border-emerald-500/30">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Net Payable</p>
+                  <p className="text-2xl font-bold font-[JetBrains_Mono] mt-1 text-emerald-600">
+                    ₹{(summary.totalNetSalary || summary.totalSalary).toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <div className="p-3 bg-emerald-500/10 rounded-xl">
+                  <IndianRupee className="w-6 h-6 text-emerald-600" />
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
           <CardContent className="p-6">
@@ -718,6 +739,8 @@ export default function SalaryReport() {
                   <TableHead className="text-center">OT Days</TableHead>
                   <TableHead className="text-center">Payable</TableHead>
                   <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Advance</TableHead>
+                  <TableHead className="text-right">Net Pay</TableHead>
                   <TableHead className="text-center">Details</TableHead>
                 </TableRow>
               </TableHeader>
@@ -805,6 +828,20 @@ export default function SalaryReport() {
                     <TableCell className="text-right font-mono font-bold">
                       ₹{result.totalSalary.toLocaleString('en-IN')}
                     </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {(result.advanceAmount || 0) > 0 ? (
+                        <span className="text-amber-600">-₹{result.advanceAmount.toLocaleString('en-IN')}</span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-bold">
+                      {(result.advanceAmount || 0) > 0 ? (
+                        <span className="text-emerald-600">₹{(result.netSalary ?? result.totalSalary).toLocaleString('en-IN')}</span>
+                      ) : (
+                        <span>₹{result.totalSalary.toLocaleString('en-IN')}</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-center">
                       <div className="flex justify-center gap-1">
                         <Button
@@ -839,7 +876,7 @@ export default function SalaryReport() {
       {/* Totals Row */}
       <Card className="bg-primary/5 border-primary/20" data-testid="totals-card">
         <CardContent className="p-4">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
             <div>
               <p className="text-sm text-muted-foreground">Total Present Days</p>
               <p className="text-xl font-bold font-[JetBrains_Mono]">
@@ -859,15 +896,21 @@ export default function SalaryReport() {
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Total Payable Days</p>
+              <p className="text-sm text-muted-foreground">Gross Salary</p>
               <p className="text-xl font-bold font-[JetBrains_Mono]">
-                {filteredResults.reduce((s, r) => s + r.totalPayableDays, 0).toFixed(2)}
+                ₹{summary.totalSalary.toLocaleString('en-IN')}
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Total Salary</p>
-              <p className="text-xl font-bold font-[JetBrains_Mono] text-green-500">
-                ₹{summary.totalSalary.toLocaleString('en-IN')}
+              <p className="text-sm text-muted-foreground">Total Advance</p>
+              <p className="text-xl font-bold font-[JetBrains_Mono] text-amber-600">
+                -₹{(summary.totalAdvance || 0).toLocaleString('en-IN')}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Net Payable</p>
+              <p className="text-xl font-bold font-[JetBrains_Mono] text-emerald-600">
+                ₹{(summary.totalNetSalary || summary.totalSalary).toLocaleString('en-IN')}
               </p>
             </div>
           </div>
@@ -950,6 +993,12 @@ export default function SalaryReport() {
                   <p>• OT Days = {selectedEmployee.netOTHours || 0} ÷ 9 = {selectedEmployee.otDays} days</p>
                   <p>• Payable Days = {selectedEmployee.presentDays} + {selectedEmployee.sundayWorked} Sun + {selectedEmployee.otDays} OT = {selectedEmployee.totalPayableDays}</p>
                   <p className="font-semibold text-primary">• Total = ₹{selectedEmployee.perDaySalary.toFixed(2)} × {selectedEmployee.totalPayableDays} = ₹{selectedEmployee.totalSalary}</p>
+                  {(selectedEmployee.advanceAmount || 0) > 0 && (
+                    <p className="font-semibold text-amber-600">• Advance Deducted = -₹{selectedEmployee.advanceAmount.toLocaleString('en-IN')}</p>
+                  )}
+                  {(selectedEmployee.advanceAmount || 0) > 0 && (
+                    <p className="font-semibold text-emerald-600">• Net Payable = ₹{(selectedEmployee.netSalary ?? selectedEmployee.totalSalary).toLocaleString('en-IN')}</p>
+                  )}
                 </div>
                 {selectedEmployee.onlySundayNoOT && (
                   <p className="mt-2 text-orange-500 font-semibold">⚠️ This employee has "Only Sunday, No OT" setting enabled</p>

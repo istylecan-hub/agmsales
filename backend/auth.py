@@ -2,11 +2,12 @@
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from jose import JWTError, jwt
 import logging
+from rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,8 @@ async def get_current_user(token: Optional[str] = Depends(oauth2_scheme)) -> Tok
     return verify_token(token)
 
 @router.post("/login", response_model=Token)
-async def login(login_data: LoginRequest):
+@limiter.limit("5/minute")
+async def login(request: Request, login_data: LoginRequest):
     """
     Login endpoint - validates credentials and returns JWT token
     """

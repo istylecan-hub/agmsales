@@ -5,7 +5,7 @@ import { DEFAULT_CONFIG, TRANSLATIONS } from '../utils/constants';
 const AppContext = createContext(null);
 
 export const AppProvider = ({ children }) => {
-  // Flag to track if initial load from localStorage is complete
+  // Flag to track if initial load is complete
   const isInitialLoadComplete = useRef(false);
   
   // Language state
@@ -14,17 +14,17 @@ export const AppProvider = ({ children }) => {
   // Theme state
   const [isDarkMode, setIsDarkMode] = useState(false);
   
-  // Employee data - initialize from localStorage immediately
-  const [employees, setEmployees] = useState(() => storage.getEmployees());
+  // Employee data - start empty, load from server
+  const [employees, setEmployees] = useState([]);
   
-  // Configuration - initialize from localStorage immediately
+  // Configuration - initialize from localStorage (non-sensitive settings)
   const [config, setConfig] = useState(() => storage.getConfig());
   
-  // Attendance data - initialize from localStorage immediately
-  const [attendanceData, setAttendanceData] = useState(() => storage.getAttendanceData());
+  // Attendance data - React state only, NO localStorage
+  const [attendanceData, setAttendanceData] = useState(null);
   
-  // Calculation results - initialize from localStorage immediately
-  const [calculationResults, setCalculationResults] = useState(() => storage.getLastCalculation());
+  // Calculation results - React state only, NO localStorage
+  const [calculationResults, setCalculationResults] = useState(null);
   
   // Current step in wizard
   const [currentStep, setCurrentStep] = useState(1);
@@ -32,28 +32,31 @@ export const AppProvider = ({ children }) => {
   // Loading states
   const [isLoading, setIsLoading] = useState(false);
   
-  // Mark initial load as complete and handle theme on mount
+  // Load employees from server and handle theme on mount
   useEffect(() => {
+    // Clean up any old sensitive data from localStorage
+    localStorage.removeItem('agm_employees');
+    localStorage.removeItem('agm_attendance_data');
+    localStorage.removeItem('agm_last_calculation');
+    localStorage.removeItem('agm_attendance');
+    localStorage.removeItem('agm_calculation');
+    
     // Check for dark mode preference
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const savedTheme = localStorage.getItem('agm_theme');
     setIsDarkMode(savedTheme === 'dark' || (!savedTheme && prefersDark));
     
-    // Try to load employees from server (MongoDB) if localStorage is empty
+    // Load employees from MongoDB server
     const loadFromServer = async () => {
-      const localEmployees = storage.getEmployees();
-      if (localEmployees.length === 0) {
-        console.log('[AppContext] No local employees, checking server...');
-        try {
-          const serverEmployees = await storage.loadEmployeesFromServer();
-          if (serverEmployees && serverEmployees.length > 0) {
-            console.log('[AppContext] Loaded employees from server:', serverEmployees.length);
-            setEmployees(serverEmployees);
-            return; // Don't mark as complete yet, let the state update trigger save
-          }
-        } catch (e) {
-          console.warn('[AppContext] Server load failed:', e);
+      console.log('[AppContext] Loading employees from server...');
+      try {
+        const serverEmployees = await storage.loadEmployeesFromServer();
+        if (serverEmployees && serverEmployees.length > 0) {
+          console.log('[AppContext] Loaded employees from server:', serverEmployees.length);
+          setEmployees(serverEmployees);
         }
+      } catch (e) {
+        console.warn('[AppContext] Server load failed:', e);
       }
     };
     
@@ -75,33 +78,19 @@ export const AppProvider = ({ children }) => {
     localStorage.setItem('agm_theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
   
-  // Save employees to localStorage when changed (only after initial load)
+  // Sync employees to server when changed (only after initial load)
   useEffect(() => {
     if (isInitialLoadComplete.current) {
       storage.setEmployees(employees);
     }
   }, [employees]);
   
-  // Save config to localStorage when changed (only after initial load)
+  // Save config to localStorage when changed (non-sensitive settings)
   useEffect(() => {
     if (isInitialLoadComplete.current) {
       storage.setConfig(config);
     }
   }, [config]);
-  
-  // Save attendance data when changed (only after initial load)
-  useEffect(() => {
-    if (isInitialLoadComplete.current && attendanceData) {
-      storage.setAttendanceData(attendanceData);
-    }
-  }, [attendanceData]);
-  
-  // Save calculation results when changed (only after initial load)
-  useEffect(() => {
-    if (isInitialLoadComplete.current && calculationResults) {
-      storage.setLastCalculation(calculationResults);
-    }
-  }, [calculationResults]);
   
   // Translation helper
   const t = (key) => {

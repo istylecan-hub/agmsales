@@ -61,14 +61,40 @@ export default function SalaryConfiguration() {
     setIsLoading(true);
 
     try {
-      // Simulate async processing
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+      const API_URL = process.env.REACT_APP_BACKEND_URL;
+      const token = sessionStorage.getItem('auth_token');
+      const authHeaders = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+      // Fetch advances for the selected month/year to deduct from salary
+      let advancesMap = {};
+      try {
+        const month = attendanceData.selectedMonth;
+        const year = attendanceData.selectedYear;
+        const advRes = await fetch(
+          `${API_URL}/api/advance/list?month=${month}&year=${year}`,
+          { headers: authHeaders }
+        );
+        if (advRes.ok) {
+          const advData = await advRes.json();
+          // Build map: normalizedCode -> total advance amount
+          (advData.advances || []).forEach(adv => {
+            const code = String(adv.employeeCode || '').trim().replace(/^0+/, '');
+            advancesMap[code] = (advancesMap[code] || 0) + (adv.amount || 0);
+          });
+          if (Object.keys(advancesMap).length > 0) {
+            toast.info(`Loaded advances for ${Object.keys(advancesMap).length} employees`);
+          }
+        }
+      } catch (advErr) {
+        console.warn('Could not fetch advances:', advErr);
+      }
+
       const results = calculateSalaries(
         attendanceData,
         employees,
         config,
-        attendanceData.daysInMonth
+        attendanceData.daysInMonth,
+        advancesMap
       );
 
       setCalculationResults(results);
