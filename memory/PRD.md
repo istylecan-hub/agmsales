@@ -1,10 +1,13 @@
-# Multi-Module ERP Application (Salary + Invoice + OrderHub)
+# AGM Salary Calculator - Product Requirements
 
 ## Original Problem Statement
-A comprehensive ERP application combining:
+A Salary Calculator application with:
 1. **Salary Calculator Module**: Employee management, attendance processing from Excel, salary calculation with configurable rules, monthly salary history
-2. **Invoice Extractor Module**: Upload PDF invoices from multiple e-commerce platforms (Amazon, Flipkart, JioMart, etc.), extract key data with GST tax merging, export to Excel
-3. **OrderHub Module**: E-commerce order consolidation system for multi-platform order management, SKU mapping, and reporting
+2. **Advance Payment Management**: Upload advance data via CSV/Excel, filter by Type="Salary", match on Employee Name + Code, use UID for upserts
+3. **JWT Authentication**: Username/password login, protected routes, Bearer token on all API calls
+4. **Security Hardening**: PostHog disabled, CORS restricted, security headers on all responses
+
+> Invoice Extractor and OrderHub modules have been REMOVED per user request.
 
 ## Current Status: Active Development
 
@@ -15,87 +18,67 @@ A comprehensive ERP application combining:
 ### Salary Calculator (Complete)
 - [x] Employee management (CRUD operations)
 - [x] Attendance processing from Excel
-- [x] Salary calculation with configurable rules
-- [x] Monthly salary history (save/view/compare)
-- [x] Report generation
+- [x] Salary calculation with configurable rules (OT, sandwich, short hours, etc.)
+- [x] Monthly salary history (save/view/compare/delete) with upsert logic
+- [x] Employee salary growth tracking
+- [x] Report generation (Excel, PDF, Salary Slips)
+- [x] February 28-day fix (was incorrectly using 31 days)
 
-### Invoice Extractor (Complete - Backend)
-- [x] **4-Stage Hybrid Pipeline** implemented:
-  - Stage A: PDF text extraction (pdfplumber + OCR fallback)
-  - Stage B: Template detection
-  - Stage C: Template-specific parsing
-  - Stage D: LLM fallback (optional)
+### Advance Payment Management (Complete - UI + Backend)
+- [x] CSV/Excel upload with flexible column matching
+- [x] Type="Salary" filter
+- [x] Employee name + code dual matching
+- [x] UID-based upsert for duplicate handling
+- [x] Frontend-to-backend employee sync for matching
+- [ ] Advance deduction from salary calculation (NOT YET IMPLEMENTED)
 
-- [x] **Template-Specific Parsers** for:
-  - Amazon (Tax Invoice, Credit Note)
-  - Flipkart (Tax Invoice, Credit Note, Commercial Credit Note)
-  - Meesho (Tax Invoice)
-  - V-Mart (Tax Invoice)
-  - AceVector/Snapdeal (Tax Invoice)
-  - Myntra (Tax Invoice)
-  - Fashnear (Tax Invoice, Credit Note)
-  - Generic GST (fallback)
+### JWT Authentication (Complete - Apr 12, 2026)
+- [x] Backend: `/api/auth/login` with JWT token generation (python-jose)
+- [x] Backend: `Depends(get_current_user)` on ALL protected routes
+- [x] Backend: Token verification endpoint `/api/auth/verify`
+- [x] Frontend: Login page with form
+- [x] Frontend: AuthContext with token management (sessionStorage)
+- [x] Frontend: PrivateRoute wrapper for protected pages
+- [x] Frontend: Auth headers on ALL fetch calls (storage.js, SalaryReport.jsx, AdvanceManagement.jsx)
+- [x] Frontend: 401 handling with auto-redirect to login
+- [x] Frontend: Logout with session cleanup
 
-- [x] **Normalized Output Schema**:
-  - Header fields (invoice#, date, GSTINs, provider, receiver, place of supply)
-  - Totals (subtotal, CGST, SGST, IGST, total tax, total amount)
-  - Line items (SAC/HSN, description, fee, taxes, total)
-  - Validation status
-
-- [x] **Excel Export** with 3 sheets:
-  - Invoice_Details (header-level)
-  - Line_Items (long format)
-  - Errors_Logs (validation issues)
-
-### Testing Results (Feb 2026)
-| Platform | Invoice # | Total | Items | Status |
-|----------|-----------|-------|-------|--------|
-| Amazon | KA-2526-3179016 | 92.04 | 1 | ✅ |
-| Flipkart | FKCKA26001044544 | 650.46 | 3 | ✅ |
-| Meesho | TI/01/26/1599650 | 378,809.84 | 3 | ✅ |
-| V-Mart | COM/2526/IN10961 | 2,926.29 | 1 | ✅ |
-| AceVector | 2526HR/IN/138081 | 16,842.97 | 1 | ✅ |
-
-### OrderHub Module (Complete - Feb 28, 2026)
-- [x] **Core Features**:
-  - Dashboard with enterprise-level analytics
-  - Multi-platform order upload (Flipkart, Amazon, etc.)
-  - Order reports with filtering
-  - Master SKU management
-  - Unmapped SKU tracking and resolution
-  
-- [x] **Performance Optimizations**:
-  - Chunked file processing (5000 rows/chunk)
-  - Bulk database inserts (1000 batch)
-  - 100MB file upload limit
-  - No artificial row limits
-  
-- [x] **Admin Controls** (Completed Feb 28, 2026):
-  - `/api/orderhub/admin/data-summary` - Data overview
-  - `/api/orderhub/admin/reset-orders` - Reset order data (preserves master SKUs)
-  - `/api/orderhub/admin/reset-master` - Reset master SKU mappings
-  - `/api/orderhub/admin/delete-upload/{file_id}` - Delete specific upload
-  - `/api/orderhub/admin/reset-all` - Complete nuclear reset
-  - `/api/orderhub/admin/remap-unmapped` - Re-map SKUs
-  - All destructive endpoints have `confirm=true` safety mechanism
-  - Frontend admin page at `/orderhub/admin`
+### Security Hardening (Complete - Apr 12, 2026)
+- [x] PostHog session recording disabled (`disable_session_recording: true`, `posthog.opt_out_capturing()`)
+- [x] CORS restricted to `accounts.agmsale.com` and `agmone.agmsale.com`
+- [x] Security headers middleware: X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, Content-Security-Policy
 
 ---
 
 ## API Endpoints
 
-### Invoice Extractor
-- `POST /api/invoice/upload` - Upload PDF files
-- `POST /api/invoice/extract/{job_id}` - Start extraction
-- `GET /api/invoice/job/{job_id}` - Get job status
-- `GET /api/invoice/export/excel/{job_id}` - Download Excel
-- `GET /api/invoice/export/csv/{job_id}` - Download CSV
-- `DELETE /api/invoice/job/{job_id}` - Delete job
+### Authentication
+- `POST /api/auth/login` - Login, returns JWT
+- `GET /api/auth/verify` - Verify token validity
+- `POST /api/auth/logout` - Logout (client-side token discard)
 
-### Salary Calculator
-- `GET/POST /api/employees` - Employee management
-- `POST /api/attendance` - Upload attendance
-- `GET/POST /api/salary-history` - Salary history management
+### Employees (Protected)
+- `GET /api/employees` - List all employees
+- `POST /api/employees` - Bulk save/replace employees
+- `POST /api/employees/add` - Add single employee
+- `PUT /api/employees/{code}` - Update employee
+- `DELETE /api/employees/{code}` - Delete employee
+
+### Salary (Protected)
+- `POST /api/salary/save` - Save monthly salary (upsert)
+- `GET /api/salary/history` - List saved months
+- `GET /api/salary/history/{year}/{month}` - Get specific month data
+- `PUT /api/salary/history/{year}/{month}/{emp_code}` - Update employee salary
+- `DELETE /api/salary/history/{year}/{month}` - Delete month record
+- `GET /api/salary/compare/{y1}/{m1}/{y2}/{m2}` - Compare two months
+- `GET /api/salary/employee/{code}/growth` - Employee growth history
+
+### Advance (Protected)
+- `POST /api/advance/upload` - Upload CSV/Excel
+- `GET /api/advance/list` - List all advances
+- `GET /api/advance/employee/{code}` - Employee-specific advances
+- `DELETE /api/advance/clear` - Clear all advances
+- `DELETE /api/advance/{uid}` - Delete specific advance
 
 ---
 
@@ -104,68 +87,52 @@ A comprehensive ERP application combining:
 ```
 /app/
 ├── backend/
-│   ├── server.py                  # FastAPI app, all routes integrated
-│   ├── invoice_extractor.py       # Job management, export logic
-│   ├── universal_extractor.py     # 4-stage hybrid pipeline
-│   ├── parsers/                   # Invoice parsers
-│   │   ├── base_parser.py         
-│   │   ├── amazon_parser.py
-│   │   ├── flipkart_parser.py
-│   │   ├── jiomart_parser.py
-│   │   └── ... (generic, meesho, vmart, etc.)
-│   └── orderhub/                  # OrderHub module
-│       ├── models.py
-│       ├── services/
-│       │   ├── file_processor.py  # Chunked processing
-│       │   └── unmapped.py        # SKU mapping logic
-│       └── routes/
-│           ├── admin.py           # Admin/reset endpoints
-│           ├── upload.py
-│           ├── dashboard.py
-│           └── ... (8 route files total)
-├── frontend/
-│   └── src/
-│       ├── pages/
-│       │   ├── InvoiceExtractor.jsx
-│       │   ├── SalaryReport.jsx
-│       │   └── orderhub/
-│       │       ├── Dashboard.jsx
-│       │       ├── Upload.jsx
-│       │       ├── Reports.jsx
-│       │       ├── MasterSKUs.jsx
-│       │       ├── UnmappedSKUs.jsx
-│       │       └── Admin.jsx      # NEW - Admin controls
-│       └── components/
-│           └── Layout.jsx         # Navigation with OrderHub links
+│   ├── server.py          # FastAPI app, CORS, security headers, routes
+│   ├── auth.py            # JWT auth module
+│   ├── advance_api.py     # Advance CSV upload module
+│   └── .env               # APP_USERNAME, APP_PASSWORD, JWT_SECRET_KEY, MONGO_URL, DB_NAME
+└── frontend/
+    └── src/
+        ├── App.js             # Routes with PrivateRoute wrappers
+        ├── context/
+        │   ├── AuthContext.jsx # Auth state, login/logout, authFetch
+        │   └── AppContext.js   # App state (employees, config, attendance)
+        ├── utils/
+        │   ├── storage.js      # API calls with auth headers
+        │   └── salaryCalculator.js
+        ├── components/
+        │   ├── Layout.jsx      # Navigation + Logout
+        │   └── PrivateRoute.jsx
+        └── pages/
+            ├── Login.jsx
+            ├── Dashboard.jsx
+            ├── EmployeeMaster.jsx
+            ├── AttendanceUpload.jsx
+            ├── SalaryConfiguration.jsx
+            ├── SalaryReport.jsx
+            └── AdvanceManagement.jsx
 ```
 
 ---
 
 ## Prioritized Backlog
 
-### P0 - Critical
-- [x] ~~OrderHub Admin Controls~~ (Completed Feb 28, 2026)
-- [ ] Verify Salary Module fix (future dates not counted as absent)
-
 ### P1 - High
-- [ ] Retry deployment (MongoDB auth error is platform issue, not code)
-- [ ] Full end-to-end testing before deployment
+- [ ] Advance deduction in salary calculation (`salaryCalculator.js`)
+- [ ] Monthly salary save overwrite verification
 
-### P2 - Low  
-- [ ] Fix navigation visibility UI glitch
-- [ ] Add more platform templates as needed
+### P2 - Medium
+- [ ] Clean up old unused files (invoice_extractor.py, orderhub/, parsers/, etc.)
+- [ ] Full E2E regression test
 
----
-
-## Known Issues
-1. **Deployment MongoDB Auth Error**: Platform-level issue with Emergent deployment connecting to MongoDB Atlas (SCRAM-SHA-1 auth error). Not a code issue - retry deployment or contact Emergent support.
-2. **Salary Module Fix Pending Verification**: Fix applied to prevent future dates from being counted as absent - awaiting user verification.
+### P3 - Low
+- [ ] Dashboard analytics improvements
+- [ ] Better error messages for auth failures
 
 ---
 
 ## Tech Stack
-- **Frontend**: React, Tailwind CSS, Shadcn/UI
-- **Backend**: FastAPI, Python
+- **Frontend**: React, Tailwind CSS, Shadcn/UI, sonner (toasts)
+- **Backend**: FastAPI, Python, python-jose (JWT)
 - **Database**: MongoDB (motor async driver)
-- **PDF Processing**: pdfplumber, PyPDF2, pytesseract (OCR)
-- **Excel**: openpyxl
+- **Auth**: JWT Bearer tokens, sessionStorage
